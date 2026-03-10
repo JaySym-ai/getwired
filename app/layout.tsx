@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 import { DemoAuthProvider } from "@/lib/demo-auth";
 import { Navbar } from "@/components/layout/Navbar";
 import { MobileNav } from "@/components/layout/MobileNav";
@@ -67,6 +68,7 @@ export default function RootLayout({
             </div>
             <MobileNav />
             <Footer />
+            <Toaster />
           </TooltipProvider>
         </DemoAuthProvider>
       </body>
