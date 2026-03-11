@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
+
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { DemoAuthProvider } from "@/lib/demo-auth";
@@ -50,7 +49,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} antialiased min-h-screen bg-background text-foreground overflow-hidden`}
+        className="antialiased min-h-screen bg-background text-foreground overflow-hidden"
       >
         <DemoAuthProvider>
           <TooltipProvider>
