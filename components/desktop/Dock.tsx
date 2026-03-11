@@ -72,7 +72,7 @@ export function Sidebar() {
 
   return (
     <div
-      className="absolute top-3 left-3 z-[9999] flex flex-col bg-zinc-950/80 backdrop-blur-xl border border-white/[0.08] rounded-2xl transition-all duration-300 ease-in-out shadow-2xl"
+      className="absolute left-3 top-1/2 -translate-y-1/2 z-[9999] flex flex-col bg-zinc-950/80 backdrop-blur-xl border border-white/[0.08] rounded-2xl transition-all duration-300 ease-in-out shadow-2xl"
       style={{ width: mounted ? sidebarWidth : SIDEBAR_WIDTH_EXPANDED }}
     >
       {/* Top: Logo */}
