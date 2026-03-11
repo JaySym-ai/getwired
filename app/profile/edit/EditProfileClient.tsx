@@ -78,7 +78,7 @@ export function EditProfileClient() {
       </div>
 
       {/* Basic Info */}
-      <Card className="glass border-white/5">
+      <Card className="glass border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <User className="size-4" /> Basic Info
@@ -107,7 +107,7 @@ export function EditProfileClient() {
       </Card>
 
       {/* Social Links */}
-      <Card className="glass border-white/5">
+      <Card className="glass border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Link2 className="size-4" /> Social Links
@@ -136,7 +136,7 @@ export function EditProfileClient() {
       </Card>
 
       {/* Tech Stack */}
-      <Card className="glass border-white/5">
+      <Card className="glass border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Code2 className="size-4" /> Tech Stack
@@ -160,7 +160,7 @@ export function EditProfileClient() {
               </Badge>
             ))}
           </div>
-          <Separator className="bg-white/5" />
+          <Separator className="bg-muted/50" />
           <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">AI Tools</p>
           <div className="flex flex-wrap gap-2">
             {AI_TOOLS.map((tool) => (
@@ -183,7 +183,7 @@ export function EditProfileClient() {
       </Card>
 
       {/* Experience (read-only display in demo) */}
-      <Card className="glass border-white/5">
+      <Card className="glass border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Briefcase className="size-4" /> Experience
@@ -191,7 +191,7 @@ export function EditProfileClient() {
         </CardHeader>
         <CardContent>
           {demoUser.experience.map((exp, i) => (
-            <div key={i} className="py-3 border-b border-white/5 last:border-0">
+            <div key={i} className="py-3 border-b border-border last:border-0">
               <p className="font-medium text-foreground">{exp.title}</p>
               <p className="text-sm text-[#3B82F6]">{exp.company}</p>
               <p className="text-xs text-muted-foreground">{exp.period}</p>
@@ -202,7 +202,7 @@ export function EditProfileClient() {
       </Card>
 
       {/* Projects */}
-      <Card className="glass border-white/5">
+      <Card className="glass border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <FolderGit2 className="size-4" /> Projects
@@ -210,7 +210,7 @@ export function EditProfileClient() {
         </CardHeader>
         <CardContent>
           {demoUser.projects.map((proj, i) => (
-            <div key={i} className="py-3 border-b border-white/5 last:border-0">
+            <div key={i} className="py-3 border-b border-border last:border-0">
               <p className="font-medium text-foreground">{proj.name}</p>
               <p className="text-sm text-foreground/70">{proj.description}</p>
             </div>
@@ -220,7 +220,7 @@ export function EditProfileClient() {
       </Card>
 
       {/* Education */}
-      <Card className="glass border-white/5">
+      <Card className="glass border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <GraduationCap className="size-4" /> Education
@@ -228,7 +228,7 @@ export function EditProfileClient() {
         </CardHeader>
         <CardContent>
           {demoUser.education.map((edu, i) => (
-            <div key={i} className="py-3 border-b border-white/5 last:border-0">
+            <div key={i} className="py-3 border-b border-border last:border-0">
               <p className="font-medium text-foreground">{edu.school}</p>
               <p className="text-sm text-foreground/70">{edu.degree} in {edu.field} ({edu.year})</p>
             </div>
@@ -238,7 +238,7 @@ export function EditProfileClient() {
       </Card>
 
       {/* Certifications */}
-      <Card className="glass border-white/5">
+      <Card className="glass border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Award className="size-4" /> Certifications
@@ -249,7 +249,7 @@ export function EditProfileClient() {
             <p className="text-sm text-muted-foreground">No certifications yet.</p>
           ) : (
             demoUser.certifications.map((cert, i) => (
-              <div key={i} className="py-3 border-b border-white/5 last:border-0">
+              <div key={i} className="py-3 border-b border-border last:border-0">
                 <p className="font-medium text-foreground">{cert.name}</p>
                 <p className="text-sm text-foreground/70">{cert.issuer} ({cert.year})</p>
               </div>
