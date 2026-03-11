@@ -78,13 +78,14 @@ export function Sidebar() {
       {/* Top: Logo */}
       <div className="flex items-center h-14 px-4 shrink-0">
         {expanded ? (
-          <div className="flex items-center gap-1 text-sm font-semibold leading-none">
-            <span className="text-white">GetWired</span>
-            <span className="text-[#3B82F6]">.dev</span>
+          <div className="flex items-baseline gap-0 select-none">
+            <span className="text-lg font-black tracking-tight text-white">Get</span>
+            <span className="text-lg font-black tracking-tight bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">Wired</span>
+            <span className="text-[10px] font-bold text-blue-400/70 ml-0.5 self-end mb-[3px]">.dev</span>
           </div>
         ) : (
-          <div className="flex items-center justify-center w-full">
-            <span className="text-sm font-bold text-white">G</span>
+          <div className="flex items-center justify-center w-full select-none">
+            <span className="text-base font-black bg-gradient-to-br from-blue-400 to-blue-600 bg-clip-text text-transparent">G</span>
           </div>
         )}
       </div>
