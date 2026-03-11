@@ -56,7 +56,7 @@ export function TrendingTags() {
             <Link
               key={tag}
               href={`/search?q=${encodeURIComponent(tag)}`}
-              className={`${getTagSize(count)} transition-all duration-200 hover:scale-110 hover:drop-shadow-[0_0_8px_rgba(0,255,65,0.4)] cursor-pointer`}
+              className={`${getTagSize(count)} transition-all duration-200 hover:scale-110 hover:drop-shadow-[0_0_8px_rgba(59,130,246,0.4)] cursor-pointer`}
               style={{ color: getTagColor(count) }}
             >
               #{tag}
