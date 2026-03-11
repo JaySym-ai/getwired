@@ -90,6 +90,19 @@ function windowManagerReducer(
       const app = APP_REGISTRY[action.appId];
       if (!app) return state;
 
+      // If a window for this app already exists, focus it instead of creating a new one
+      const existing = state.windows.find((w) => w.appId === action.appId);
+      if (existing) {
+        return {
+          windows: state.windows.map((w) =>
+            w.id === existing.id
+              ? { ...w, isMinimized: false, zIndex: state.nextZIndex }
+              : w,
+          ),
+          nextZIndex: state.nextZIndex + 1,
+        };
+      }
+
       const position = getStaggeredPosition(state.windows.length);
       const newWindow: WindowState = {
         id: generateWindowId(),
