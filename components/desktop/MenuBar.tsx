@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Wifi, BatteryFull, Bell, Search } from "lucide-react";
+import { Wifi, BatteryFull, Bell, Search, Sun, Moon } from "lucide-react";
 import { useDemoAuth } from "@/lib/demo-auth";
 import { UserAvatar } from "@/components/shared/Avatar";
 import { useWindowManager } from "./useWindowManager";
@@ -30,6 +30,25 @@ export function MenuBar() {
   const time = useCurrentTime();
   const { state, openWindow } = useWindowManager();
 
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("getwired-theme");
+      return stored ? stored === "dark" : true;
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    localStorage.setItem("getwired-theme", isDark ? "dark" : "light");
+  }, [isDark]);
+
+  const toggleTheme = () => setIsDark((prev) => !prev);
+
   // Determine the focused window's app name
   const focusedAppName = useMemo(() => {
     const visible = state.windows.filter((w) => !w.isMinimized);
@@ -53,6 +72,13 @@ export function MenuBar() {
 
       {/* Right: System tray */}
       <div className="flex items-center gap-3">
+        <button onClick={toggleTheme} className="flex items-center">
+          {isDark ? (
+            <Moon className="size-3.5 text-zinc-400 hover:text-zinc-200" />
+          ) : (
+            <Sun className="size-3.5 text-zinc-400 hover:text-zinc-200" />
+          )}
+        </button>
         <Wifi className="size-3.5 text-zinc-400 hover:text-zinc-200" />
         <BatteryFull className="size-3.5 text-zinc-400 hover:text-zinc-200" />
         <button onClick={() => openWindow("notifications")} className="relative flex items-center">

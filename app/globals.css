@@ -54,8 +54,44 @@
   --color-surface-active: #3F3F46;
 }
 
-/* Wired Theme — Dark mode is default (applied to :root) */
+/* Light mode (default) */
 :root {
+  --background: #FFFFFF;
+  --foreground: #09090B;
+  --card: #F4F4F5;
+  --card-foreground: #09090B;
+  --popover: #FFFFFF;
+  --popover-foreground: #09090B;
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F4F4F5;
+  --secondary-foreground: #18181B;
+  --muted: #F4F4F5;
+  --muted-foreground: #71717A;
+  --accent: #F4F4F5;
+  --accent-foreground: #18181B;
+  --destructive: #EF4444;
+  --border: rgba(0, 0, 0, 0.08);
+  --input: rgba(0, 0, 0, 0.08);
+  --ring: #3B82F6;
+  --chart-1: #3B82F6;
+  --chart-2: #2563EB;
+  --chart-3: #1D4ED8;
+  --chart-4: #1E40AF;
+  --chart-5: #1E3A8A;
+  --radius: 0.625rem;
+  --sidebar: #FAFAFA;
+  --sidebar-foreground: #09090B;
+  --sidebar-primary: #3B82F6;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F4F4F5;
+  --sidebar-accent-foreground: #18181B;
+  --sidebar-border: rgba(0, 0, 0, 0.08);
+  --sidebar-ring: #3B82F6;
+}
+
+/* Dark mode */
+.dark {
   --background: #09090B;
   --foreground: #FAFAFA;
   --card: #18181B;
@@ -79,7 +115,6 @@
   --chart-3: #1D4ED8;
   --chart-4: #1E40AF;
   --chart-5: #1E3A8A;
-  --radius: 0.625rem;
   --sidebar: #0F0F12;
   --sidebar-foreground: #FAFAFA;
   --sidebar-primary: #3B82F6;
@@ -106,23 +141,38 @@
 /* Glassmorphism utilities */
 @layer utilities {
   .glass {
-    background: rgba(24, 24, 27, 0.6);
+    background: rgba(255, 255, 255, 0.5);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  .dark .glass {
+    background: rgba(24, 24, 27, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
   .glass-strong {
-    background: rgba(24, 24, 27, 0.85);
+    background: rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .dark .glass-strong {
+    background: rgba(24, 24, 27, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .glass-subtle {
-    background: rgba(24, 24, 27, 0.4);
+    background: rgba(255, 255, 255, 0.3);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+  }
+
+  .dark .glass-subtle {
+    background: rgba(24, 24, 27, 0.4);
     border: 1px solid rgba(255, 255, 255, 0.04);
   }
 
@@ -154,7 +204,7 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.15);
   border-radius: 3px;
 }
 
@@ -162,8 +212,20 @@
   background: rgba(59, 130, 246, 0.3);
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.3);
+}
+
 /* Firefox scrollbar */
 * {
   scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+.dark * {
   scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
 }
