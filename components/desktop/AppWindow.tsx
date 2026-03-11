@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Rnd } from "react-rnd";
 import type { RndDragEvent, DraggableData } from "react-rnd";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,9 @@ export function AppWindow({ windowState, children }: AppWindowProps) {
   } = useWindowManager();
 
   const { id, title, icon, position, size, zIndex, isMinimized, isMaximized } = windowState;
+
+  const [refreshKey, setRefreshKey] = useState(0);
+  const onRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   // Determine if this window is the topmost (focused)
   const isFocused = useMemo(() => {
@@ -106,8 +109,9 @@ export function AppWindow({ windowState, children }: AppWindowProps) {
           onMinimize={() => minimizeWindow(id)}
           onMaximize={() => maximizeWindow(id)}
           onRestore={() => restoreWindow(id)}
+          onRefresh={onRefresh}
         />
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto" key={refreshKey}>
           {children}
         </div>
       </div>

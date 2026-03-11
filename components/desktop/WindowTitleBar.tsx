@@ -4,7 +4,7 @@ import { useCallback, useState } from "react";
 import {
   Rss, MessageSquare, MessagesSquare, Newspaper, Compass,
   ShoppingBag, User, Bookmark, Bell, Search, Shield, Mail,
-  X, Minus, Maximize2,
+  X, Minus, Maximize2, RotateCw,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,7 @@ interface WindowTitleBarProps {
   onMinimize: () => void;
   onMaximize: () => void;
   onRestore: () => void;
+  onRefresh?: () => void;
 }
 
 export function WindowTitleBar({
@@ -34,8 +35,10 @@ export function WindowTitleBar({
   onMinimize,
   onMaximize,
   onRestore,
+  onRefresh,
 }: WindowTitleBarProps) {
   const [hovered, setHovered] = useState(false);
+  const [isSpinning, setIsSpinning] = useState(false);
   const Icon = ICON_MAP[icon] ?? Search;
 
   const handleDoubleClick = useCallback(() => {
@@ -99,8 +102,28 @@ export function WindowTitleBar({
         </span>
       </div>
 
-      {/* Right side: empty for now */}
-      <div className="w-14" />
+      {/* Right side: refresh button */}
+      <div className="flex w-14 items-center justify-end">
+        {onRefresh && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsSpinning(true);
+              onRefresh();
+              setTimeout(() => setIsSpinning(false), 500);
+            }}
+            className="flex items-center justify-center p-1"
+            aria-label="Refresh"
+          >
+            <RotateCw
+              className={cn(
+                "size-3.5 text-muted-foreground hover:text-foreground transition-colors",
+                isSpinning && "animate-spin",
+              )}
+            />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
