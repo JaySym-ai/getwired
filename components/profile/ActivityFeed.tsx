@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, ThumbsUp, Eye, ArrowRight } from "lucide-react";
@@ -22,6 +21,20 @@ interface CommentItem {
   createdAt: number;
 }
 
+const CATEGORY_COLORS: Record<string, string> = {
+  General: "bg-blue-500",
+  "Show & Tell": "bg-emerald-500",
+  Help: "bg-amber-500",
+  Discussion: "bg-purple-500",
+  News: "bg-cyan-500",
+  Career: "bg-rose-500",
+};
+
+function getCategoryColor(category?: string): string {
+  if (!category) return "bg-[#3B82F6]";
+  return CATEGORY_COLORS[category] ?? "bg-[#3B82F6]";
+}
+
 function timeAgo(ts: number): string {
   const diff = Date.now() - ts;
   const mins = Math.floor(diff / 60000);
@@ -31,6 +44,15 @@ function timeAgo(ts: number): string {
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days}d ago`;
   return `${Math.floor(days / 30)}mo ago`;
+}
+
+function StatPill({ icon: Icon, value }: { icon: React.ElementType; value: number }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.04] px-2 py-0.5 text-[11px] text-muted-foreground">
+      <Icon className="size-3" />
+      {value}
+    </span>
+  );
 }
 
 interface ActivityFeedProps {
@@ -64,35 +86,33 @@ export function ActivityFeed({ posts, comments, mode = "all" }: ActivityFeedProp
           ) : (
             <div className="space-y-2">
               {(mode === "all" ? posts.slice(0, 3) : posts).map((post, i) => (
-                <Card key={i} className="glass border-white/5">
-                  <CardContent className="py-3">
+                <article
+                  key={i}
+                  className="group glass rounded-xl overflow-hidden flex transition-all duration-200 hover:shadow-lg hover:shadow-black/20 hover:-translate-y-px hover:border-white/[0.1]"
+                >
+                  {/* Left accent bar */}
+                  <div className={`w-[3px] shrink-0 ${getCategoryColor(post.category)}`} />
+                  <div className="flex-1 p-3 pl-3.5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <h4 className="font-medium text-foreground text-sm truncate">{post.title}</h4>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                        <h4 className="font-medium text-foreground text-sm leading-snug group-hover:text-[#3B82F6] transition-colors">
+                          {post.title}
+                        </h4>
+                        <div className="flex flex-wrap items-center gap-2 mt-2">
                           {post.category && (
                             <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                               {post.category}
                             </Badge>
                           )}
-                          <span className="flex items-center gap-1">
-                            <ThumbsUp className="size-3" />
-                            {post.likes}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <MessageSquare className="size-3" />
-                            {post.commentCount}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Eye className="size-3" />
-                            {post.views}
-                          </span>
+                          <StatPill icon={ThumbsUp} value={post.likes} />
+                          <StatPill icon={MessageSquare} value={post.commentCount} />
+                          <StatPill icon={Eye} value={post.views} />
                         </div>
                       </div>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">{timeAgo(post.createdAt)}</span>
+                      <span className="text-[11px] text-muted-foreground whitespace-nowrap mt-0.5">{timeAgo(post.createdAt)}</span>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </article>
               ))}
             </div>
           )}
@@ -118,19 +138,25 @@ export function ActivityFeed({ posts, comments, mode = "all" }: ActivityFeedProp
           ) : (
             <div className="space-y-2">
               {(mode === "all" ? comments.slice(0, 3) : comments).map((comment, i) => (
-                <Card key={i} className="glass border-white/5">
-                  <CardContent className="py-3">
-                    <p className="text-sm text-foreground/80 line-clamp-2">{comment.content}</p>
-                    <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-                      <span className="truncate">on &ldquo;{comment.postTitle}&rdquo;</span>
-                      <span className="flex items-center gap-1 shrink-0">
-                        <ThumbsUp className="size-3" />
-                        {comment.likes}
+                <article
+                  key={i}
+                  className="group glass rounded-xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:shadow-black/20 hover:-translate-y-px hover:border-white/[0.1]"
+                >
+                  <div className="p-3 pl-4 border-l-2 border-[#3B82F6]/40 ml-px">
+                    <p className="text-sm text-foreground/80 line-clamp-2 leading-relaxed italic">
+                      &ldquo;{comment.content}&rdquo;
+                    </p>
+                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                      <span className="truncate">
+                        on <span className="text-foreground/60 font-medium">{comment.postTitle}</span>
                       </span>
-                      <span className="shrink-0">{timeAgo(comment.createdAt)}</span>
+                      <span className="ml-auto flex items-center gap-2 shrink-0">
+                        <StatPill icon={ThumbsUp} value={comment.likes} />
+                        <span className="text-[11px]">{timeAgo(comment.createdAt)}</span>
+                      </span>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </article>
               ))}
             </div>
           )}

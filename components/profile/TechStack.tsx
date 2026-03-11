@@ -2,7 +2,17 @@
 
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Bot } from "lucide-react";
+import { Bot, Code2, Layers, Wrench, Database, Cloud, BrainCircuit } from "lucide-react";
+
+const CATEGORY_META: Record<string, { icon: React.ElementType; color: string }> = {
+  Languages: { icon: Code2, color: "text-blue-400" },
+  Frameworks: { icon: Layers, color: "text-emerald-400" },
+  Tools: { icon: Wrench, color: "text-amber-400" },
+  Databases: { icon: Database, color: "text-rose-400" },
+  Cloud: { icon: Cloud, color: "text-cyan-400" },
+  "ML & Data": { icon: BrainCircuit, color: "text-purple-400" },
+  Other: { icon: Code2, color: "text-zinc-400" },
+};
 
 const TECH_CATEGORIES: Record<string, string[]> = {
   Languages: ["JavaScript", "TypeScript", "Python", "Rust", "Go", "Swift", "Kotlin", "Java", "C++", "Dart"],
@@ -44,50 +54,61 @@ export function TechStack({ techStack, aiTools }: TechStackProps) {
   const categorized = categorizeTech(techStack);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <h2 className="text-lg font-semibold text-foreground">Tech Stack</h2>
 
-      <div className="space-y-4">
-        {Object.entries(categorized).map(([category, items]) => (
-          <div key={category}>
-            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-              {category}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {Object.entries(categorized).map(([category, items]) => {
+          const fallback = { icon: Code2, color: "text-zinc-400" };
+          const meta = (CATEGORY_META as Record<string, { icon: React.ElementType; color: string } | undefined>)[category] ?? fallback;
+          const Icon = meta.icon;
+          return (
+            <div key={category} className="space-y-2">
+              <h3 className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <Icon className={`size-3.5 ${meta.color}`} />
+                {category}
+              </h3>
+              <div className="flex flex-wrap gap-1.5">
+                {items.map((tech) => (
+                  <Link key={tech} href={`/search?q=${encodeURIComponent(tech)}`}>
+                    <Badge
+                      variant="secondary"
+                      className="cursor-pointer border border-transparent hover:bg-[#3B82F6]/10 hover:text-[#3B82F6] hover:border-[#3B82F6]/30 hover:shadow-[0_0_12px_rgba(59,130,246,0.15)] transition-all duration-200 gap-1.5"
+                    >
+                      <span className={`size-1.5 rounded-full ${meta.color.replace("text-", "bg-")} opacity-60`} />
+                      {tech}
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {aiTools.length > 0 && (
+        <>
+          <div className="border-t border-white/[0.06]" />
+          <div className="space-y-2">
+            <h3 className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <Bot className="size-3.5 text-purple-400" />
+              AI Tools
             </h3>
-            <div className="flex flex-wrap gap-2">
-              {items.map((tech) => (
-                <Link key={tech} href={`/search?q=${encodeURIComponent(tech)}`}>
+            <div className="flex flex-wrap gap-1.5">
+              {aiTools.map((tool) => (
+                <Link key={tool} href={`/search?q=${encodeURIComponent(tool)}`}>
                   <Badge
-                    variant="secondary"
-                    className="cursor-pointer hover:bg-[#3B82F6]/10 hover:text-[#3B82F6] hover:border-[#3B82F6]/30 transition-colors border border-transparent"
+                    variant="outline"
+                    className="cursor-pointer hover:bg-purple-500/10 hover:text-purple-400 hover:border-purple-500/30 hover:shadow-[0_0_12px_rgba(168,85,247,0.15)] transition-all duration-200 gap-1.5"
                   >
-                    {tech}
+                    <span className="size-1.5 rounded-full bg-purple-400 opacity-60" />
+                    {tool}
                   </Badge>
                 </Link>
               ))}
             </div>
           </div>
-        ))}
-      </div>
-
-      {aiTools.length > 0 && (
-        <div>
-          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Bot className="size-3.5" />
-            AI Tools
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {aiTools.map((tool) => (
-              <Link key={tool} href={`/search?q=${encodeURIComponent(tool)}`}>
-                <Badge
-                  variant="outline"
-                  className="cursor-pointer hover:bg-purple-500/10 hover:text-purple-400 hover:border-purple-500/30 transition-colors"
-                >
-                  {tool}
-                </Badge>
-              </Link>
-            ))}
-          </div>
-        </div>
+        </>
       )}
     </div>
   );
