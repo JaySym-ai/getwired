@@ -186,26 +186,31 @@ function PostResult({ post, query }: { post: PostWithIndex; query: string }) {
   const author = DEMO_USERS[post.authorIndex];
   const preview = post.content.slice(0, 150);
   return (
-    <Link href={`/forums/${post.category}/post-${post._index}`} className="block">
-      <div className="glass rounded-lg p-3 hover:border-[#3B82F6]/20 transition-all">
-        <div className="flex items-center gap-2 mb-1">
-          {author && (
-            <span className="text-xs text-muted-foreground">{author.name}</span>
-          )}
-          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-            <Clock className="size-3" />
-            {formatRelativeTime(post.createdAt)}
-          </span>
-        </div>
-        <h3 className="text-sm font-semibold mb-1">
-          <HighlightText text={post.title} query={query} />
-        </h3>
-        <p className="text-xs text-muted-foreground line-clamp-2">
-          <HighlightText text={preview} query={query} />
-        </p>
-        <TagList tags={post.tags.slice(0, 3)} size="sm" className="mt-2" />
+    <div
+      className="glass rounded-lg p-3 hover:border-[#3B82F6]/20 transition-all cursor-pointer"
+      onClick={(e) => {
+        // Don't navigate if clicking a tag link inside
+        if ((e.target as HTMLElement).closest('a')) return;
+        window.location.href = `/forums/${post.category}/post-${post._index}`;
+      }}
+    >
+      <div className="flex items-center gap-2 mb-1">
+        {author && (
+          <span className="text-xs text-muted-foreground">{author.name}</span>
+        )}
+        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+          <Clock className="size-3" />
+          {formatRelativeTime(post.createdAt)}
+        </span>
       </div>
-    </Link>
+      <h3 className="text-sm font-semibold mb-1">
+        <HighlightText text={post.title} query={query} />
+      </h3>
+      <p className="text-xs text-muted-foreground line-clamp-2">
+        <HighlightText text={preview} query={query} />
+      </p>
+      <TagList tags={post.tags.slice(0, 3)} size="sm" className="mt-2" />
+    </div>
   );
 }
 
