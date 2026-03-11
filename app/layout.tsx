@@ -3,9 +3,8 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { DemoAuthProvider } from "@/lib/demo-auth";
-import { Navbar } from "@/components/layout/Navbar";
-import { MobileNav } from "@/components/layout/MobileNav";
-import { Footer } from "@/components/layout/Footer";
+import { WindowManagerProvider } from "@/components/desktop/WindowManager";
+import { Desktop } from "@/components/desktop/Desktop";
 import "./globals.css";
 
 const inter = Inter({
@@ -58,16 +57,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased min-h-screen bg-background text-foreground`}
+        className={`${inter.variable} ${jetbrainsMono.variable} antialiased min-h-screen bg-background text-foreground overflow-hidden`}
       >
         <DemoAuthProvider>
           <TooltipProvider>
-            <Navbar />
-            <div className="pt-14 pb-14 md:pb-0">
-              {children}
-            </div>
-            <MobileNav />
-            <Footer />
+            <WindowManagerProvider>
+              <Desktop />
+            </WindowManagerProvider>
             <Toaster />
           </TooltipProvider>
         </DemoAuthProvider>

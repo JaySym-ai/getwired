@@ -95,17 +95,17 @@ export default function Home() {
 
         <div className="mt-4">
           <Tabs defaultValue="hot" onValueChange={(v) => setActiveTab(v as FeedTab)}>
-            <TabsList className="mb-4 bg-black/40 border border-green-500/10">
-              <TabsTrigger value="hot" className="gap-1.5 data-active:text-[#00FF41]">
+            <TabsList className="mb-4 bg-zinc-900/40 border border-white/8">
+              <TabsTrigger value="hot" className="gap-1.5 data-active:text-[#3B82F6]">
                 <Flame className="size-3.5" /> Hot
               </TabsTrigger>
-              <TabsTrigger value="new" className="gap-1.5 data-active:text-[#00FF41]">
+              <TabsTrigger value="new" className="gap-1.5 data-active:text-[#3B82F6]">
                 <Clock className="size-3.5" /> New
               </TabsTrigger>
-              <TabsTrigger value="following" className="gap-1.5 data-active:text-[#00FF41]">
+              <TabsTrigger value="following" className="gap-1.5 data-active:text-[#3B82F6]">
                 <Users className="size-3.5" /> Following
               </TabsTrigger>
-              <TabsTrigger value="trending" className="gap-1.5 data-active:text-[#00FF41]">
+              <TabsTrigger value="trending" className="gap-1.5 data-active:text-[#3B82F6]">
                 <TrendingUp className="size-3.5" /> Trending
               </TabsTrigger>
             </TabsList>
@@ -139,7 +139,7 @@ export default function Home() {
                 <Link key={tag} href={`/search?tag=${tag}`}>
                   <Badge
                     variant="secondary"
-                    className="cursor-pointer text-[11px] hover:bg-[#00FF41]/10 hover:text-[#00FF41] transition-colors"
+                    className="cursor-pointer text-[11px] hover:bg-[#3B82F6]/10 hover:text-[#3B82F6] transition-colors"
                   >
                     #{tag}
                   </Badge>
@@ -157,14 +157,14 @@ export default function Home() {
               {DEMO_EVENTS.slice(0, 3).map((event) => (
                 <div key={event.title} className="group">
                   <div className="flex items-start gap-2">
-                    <div className="flex flex-col items-center justify-center rounded-md bg-[#00FF41]/10 px-2 py-1 text-center shrink-0">
-                      <Calendar className="size-3 text-[#00FF41] mb-0.5" />
-                      <span className="text-[10px] font-medium text-[#00FF41]">
+                    <div className="flex flex-col items-center justify-center rounded-md bg-[#3B82F6]/10 px-2 py-1 text-center shrink-0">
+                      <Calendar className="size-3 text-[#3B82F6] mb-0.5" />
+                      <span className="text-[10px] font-medium text-[#3B82F6]">
                         {formatEventDate(event.startTime)}
                       </span>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-medium leading-tight truncate group-hover:text-[#00FF41] transition-colors">
+                      <p className="text-xs font-medium leading-tight truncate group-hover:text-[#3B82F6] transition-colors">
                         {event.title}
                       </p>
                       <p className="text-[10px] text-muted-foreground capitalize">{event.type}</p>
@@ -188,7 +188,7 @@ export default function Home() {
                     <p className="text-xs font-medium truncate">{u.name}</p>
                     <p className="text-[10px] text-muted-foreground truncate">@{u.username}</p>
                   </div>
-                  <Button variant="outline" size="xs" className="shrink-0 text-[10px] h-6 gap-1 border-green-500/20 hover:bg-[#00FF41]/10 hover:text-[#00FF41]">
+                  <Button variant="outline" size="xs" className="shrink-0 text-[10px] h-6 gap-1 border-white/10 hover:bg-[#3B82F6]/10 hover:text-[#3B82F6]">
                     <UserPlus className="size-3" />
                     Follow
                   </Button>

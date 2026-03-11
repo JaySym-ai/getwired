@@ -58,7 +58,7 @@ export function TechStack({ techStack, aiTools }: TechStackProps) {
                 <Link key={tech} href={`/search?q=${encodeURIComponent(tech)}`}>
                   <Badge
                     variant="secondary"
-                    className="cursor-pointer hover:bg-[#00FF41]/10 hover:text-[#00FF41] hover:border-[#00FF41]/30 transition-colors border border-transparent"
+                    className="cursor-pointer hover:bg-[#3B82F6]/10 hover:text-[#3B82F6] hover:border-[#3B82F6]/30 transition-colors border border-transparent"
                   >
                     {tech}
                   </Badge>

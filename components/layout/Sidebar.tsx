@@ -19,9 +19,9 @@ const CATEGORIES = [
   { name: "Security", icon: Shield, color: "text-red-400" },
   { name: "DevOps", icon: Cloud, color: "text-cyan-400" },
   { name: "Mobile", icon: Smartphone, color: "text-amber-400" },
-  { name: "Gaming", icon: Gamepad2, color: "text-green-400" },
+  { name: "Gaming", icon: Gamepad2, color: "text-blue-400" },
   { name: "Data", icon: Database, color: "text-pink-400" },
-  { name: "Open Source", icon: Code2, color: "text-[#00FF41]" },
+  { name: "Open Source", icon: Code2, color: "text-[#3B82F6]" },
 ];
 
 const TRENDING_TAGS = [
@@ -62,7 +62,7 @@ export function Sidebar() {
               <Link key={tag} href={`/tags/${tag}`}>
                 <Badge
                   variant="secondary"
-                  className="cursor-pointer text-[11px] hover:bg-[#00FF41]/10 hover:text-[#00FF41] transition-colors"
+                  className="cursor-pointer text-[11px] hover:bg-[#3B82F6]/10 hover:text-[#3B82F6] transition-colors"
                 >
                   #{tag}
                 </Badge>

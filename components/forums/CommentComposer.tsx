@@ -46,7 +46,7 @@ export function CommentComposer({
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder={placeholder}
-          className="min-h-[60px] resize-none bg-black/30 text-sm"
+          className="min-h-[60px] resize-none bg-zinc-900/30 text-sm"
           rows={compact ? 2 : 3}
         />
         <div className="flex items-center justify-end gap-2">

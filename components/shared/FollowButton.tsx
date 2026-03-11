@@ -59,8 +59,8 @@ export function FollowButton({
       className={cn(
         "gap-1.5 transition-all",
         following
-          ? "bg-[#00FF41] text-black hover:bg-[#00FF41]/80"
-          : "border-[#00FF41]/30 text-[#00FF41] hover:bg-[#00FF41]/10",
+          ? "bg-[#3B82F6] text-white hover:bg-[#3B82F6]/80"
+          : "border-[#3B82F6]/30 text-[#3B82F6] hover:bg-[#3B82F6]/10",
         className
       )}
     >

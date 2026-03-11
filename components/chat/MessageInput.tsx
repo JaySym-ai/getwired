@@ -127,7 +127,7 @@ export function MessageInput({ onSend }: MessageInputProps) {
           onKeyDown={handleKeyDown}
           placeholder="Type a message..."
           className={cn(
-            "flex-1 border-border/50 bg-secondary/30 focus-visible:ring-[#00FF41]/30",
+            "flex-1 border-border/50 bg-secondary/30 focus-visible:ring-[#3B82F6]/30",
             "placeholder:text-muted-foreground/60"
           )}
         />
@@ -136,7 +136,7 @@ export function MessageInput({ onSend }: MessageInputProps) {
           onClick={handleSend}
           disabled={!value.trim()}
           size="icon"
-          className="size-8 shrink-0 bg-[#00FF41] text-black hover:bg-[#00CC33] disabled:opacity-30"
+          className="size-8 shrink-0 bg-[#3B82F6] text-white hover:bg-[#2563EB] disabled:opacity-30"
         >
           <SendHorizontal className="size-4" />
         </Button>

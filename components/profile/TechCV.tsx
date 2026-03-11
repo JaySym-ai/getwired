@@ -39,7 +39,7 @@ function CollapsibleSection({
     <div className="space-y-3">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 text-lg font-semibold text-foreground hover:text-[#00FF41] transition-colors w-full"
+        className="flex items-center gap-2 text-lg font-semibold text-foreground hover:text-[#3B82F6] transition-colors w-full"
       >
         <Icon className="size-5" />
         {title}
@@ -59,13 +59,13 @@ export function TechCV({ experience, projects, education, certifications }: Tech
       {/* Experience */}
       <CollapsibleSection title="Experience" icon={Briefcase} count={experience.length}>
         <div className="relative pl-6 space-y-6">
-          <div className="absolute left-2 top-2 bottom-2 w-px bg-[#00FF41]/20" />
+          <div className="absolute left-2 top-2 bottom-2 w-px bg-[#3B82F6]/20" />
           {experience.map((exp, i) => (
             <div key={i} className="relative">
-              <div className="absolute -left-[18px] top-1.5 size-2.5 rounded-full bg-[#00FF41] ring-2 ring-background" />
+              <div className="absolute -left-[18px] top-1.5 size-2.5 rounded-full bg-[#3B82F6] ring-2 ring-background" />
               <div className="glass rounded-lg p-4 space-y-1">
                 <h4 className="font-semibold text-foreground">{exp.title}</h4>
-                <p className="text-sm text-[#00FF41]">{exp.company}</p>
+                <p className="text-sm text-[#3B82F6]">{exp.company}</p>
                 <p className="text-xs text-muted-foreground">{exp.period}</p>
                 <p className="text-sm text-foreground/70 mt-2">{exp.description}</p>
               </div>
@@ -107,7 +107,7 @@ export function TechCV({ experience, projects, education, certifications }: Tech
         <div className="space-y-3">
           {education.map((edu, i) => (
             <div key={i} className="glass rounded-lg p-4 flex items-start gap-3">
-              <GraduationCap className="size-5 text-[#00FF41] mt-0.5 shrink-0" />
+              <GraduationCap className="size-5 text-[#3B82F6] mt-0.5 shrink-0" />
               <div>
                 <h4 className="font-semibold text-foreground">{edu.school}</h4>
                 <p className="text-sm text-foreground/70">

@@ -33,7 +33,7 @@ function LeaderboardList({ users }: { users: typeof DEMO_USERS }) {
             key={user.clerkId}
             href={`/profile/${user.username}`}
             className={`flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-white/5 ${
-              isTop3 ? "bg-[#00FF41]/5" : ""
+              isTop3 ? "bg-[#3B82F6]/5" : ""
             }`}
           >
             {/* Position */}
@@ -51,7 +51,7 @@ function LeaderboardList({ users }: { users: typeof DEMO_USERS }) {
               <span className="text-xs text-muted-foreground">@{user.username}</span>
             </div>
 
-            <span className="text-sm font-semibold text-[#00FF41] tabular-nums shrink-0">
+            <span className="text-sm font-semibold text-[#3B82F6] tabular-nums shrink-0">
               {user.karma.toLocaleString()}
             </span>
           </Link>
@@ -63,20 +63,20 @@ function LeaderboardList({ users }: { users: typeof DEMO_USERS }) {
 
 export function Leaderboard() {
   return (
-    <Card className="glass border-green-500/10">
+    <Card className="glass border-white/8">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-          <Trophy className="size-4 text-[#00FF41]" />
+          <Trophy className="size-4 text-[#3B82F6]" />
           Top Contributors
         </CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="month">
-          <TabsList className="mb-3 bg-black/40 border border-green-500/10 w-full">
-            <TabsTrigger value="month" className="flex-1 text-xs data-active:text-[#00FF41]">
+          <TabsList className="mb-3 bg-zinc-900/40 border border-white/8 w-full">
+            <TabsTrigger value="month" className="flex-1 text-xs data-active:text-[#3B82F6]">
               This Month
             </TabsTrigger>
-            <TabsTrigger value="all" className="flex-1 text-xs data-active:text-[#00FF41]">
+            <TabsTrigger value="all" className="flex-1 text-xs data-active:text-[#3B82F6]">
               All Time
             </TabsTrigger>
           </TabsList>

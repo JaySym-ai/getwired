@@ -48,8 +48,8 @@ function SearchPageContent() {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-4">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-[#00FF41]/10">
-            <Search className="size-5 text-[#00FF41]" />
+          <div className="flex size-10 items-center justify-center rounded-lg bg-[#3B82F6]/10">
+            <Search className="size-5 text-[#3B82F6]" />
           </div>
           <h1 className="text-2xl font-bold text-white">Search</h1>
         </div>
@@ -73,7 +73,7 @@ function SearchPageContent() {
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
                 tab === t.value
-                  ? "bg-[#00FF41]/10 text-[#00FF41] border border-[#00FF41]/30"
+                  ? "bg-[#3B82F6]/10 text-[#3B82F6] border border-[#3B82F6]/30"
                   : "text-muted-foreground hover:bg-white/5 hover:text-white border border-transparent"
               )}
             >
@@ -83,7 +83,7 @@ function SearchPageContent() {
                   variant="secondary"
                   className={cn(
                     "text-[10px] px-1.5 py-0 ml-0.5",
-                    tab === t.value && "bg-[#00FF41]/20 text-[#00FF41]"
+                    tab === t.value && "bg-[#3B82F6]/20 text-[#3B82F6]"
                   )}
                 >
                   {counts[t.value]}

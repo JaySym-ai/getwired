@@ -27,7 +27,7 @@ function HighlightText({ text, query }: { text: string; query: string }) {
     <>
       {parts.map((part, i) =>
         regex.test(part) ? (
-          <mark key={i} className="bg-[#00FF41]/20 text-[#00FF41] rounded-sm px-0.5">
+          <mark key={i} className="bg-[#3B82F6]/20 text-[#3B82F6] rounded-sm px-0.5">
             {part}
           </mark>
         ) : (
@@ -159,7 +159,7 @@ function ResultSection({
   return (
     <section>
       <div className="flex items-center gap-2 mb-3">
-        <Icon className="size-4 text-[#00FF41]" />
+        <Icon className="size-4 text-[#3B82F6]" />
         <h2 className="text-sm font-semibold text-white">{title}</h2>
         <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{count}</Badge>
       </div>
@@ -187,7 +187,7 @@ function PostResult({ post, query }: { post: PostWithIndex; query: string }) {
   const preview = post.content.slice(0, 150);
   return (
     <Link href={`/forums/${post.category}/post-${post._index}`} className="block">
-      <div className="glass rounded-lg p-3 hover:border-[#00FF41]/20 transition-all">
+      <div className="glass rounded-lg p-3 hover:border-[#3B82F6]/20 transition-all">
         <div className="flex items-center gap-2 mb-1">
           {author && (
             <span className="text-xs text-muted-foreground">{author.name}</span>
@@ -212,7 +212,7 @@ function PostResult({ post, query }: { post: PostWithIndex; query: string }) {
 function UserResult({ user, query }: { user: typeof DEMO_USERS[number]; query: string }) {
   return (
     <Link href={`/profile/${user.username}`} className="block">
-      <div className="glass rounded-lg p-3 hover:border-[#00FF41]/20 transition-all flex items-center gap-3">
+      <div className="glass rounded-lg p-3 hover:border-[#3B82F6]/20 transition-all flex items-center gap-3">
         <UserAvatar src={user.avatar} name={user.name} size="lg" />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -230,7 +230,7 @@ function UserResult({ user, query }: { user: typeof DEMO_USERS[number]; query: s
             </p>
           )}
         </div>
-        <Button variant="ghost" size="xs" className="shrink-0 text-[#00FF41]">
+        <Button variant="ghost" size="xs" className="shrink-0 text-[#3B82F6]">
           View Profile
         </Button>
       </div>
@@ -241,7 +241,7 @@ function UserResult({ user, query }: { user: typeof DEMO_USERS[number]; query: s
 function NewsResult({ article, query }: { article: typeof DEMO_NEWS_ARTICLES[number]; query: string }) {
   return (
     <a href={article.url} target="_blank" rel="noopener noreferrer" className="block">
-      <div className="glass rounded-lg p-3 hover:border-[#00FF41]/20 transition-all">
+      <div className="glass rounded-lg p-3 hover:border-[#3B82F6]/20 transition-all">
         <div className="flex items-center gap-2 mb-1">
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
             {article.source}
@@ -266,7 +266,7 @@ function NewsResult({ article, query }: { article: typeof DEMO_NEWS_ARTICLES[num
 function ForumResult({ category, query }: { category: typeof DEMO_CATEGORIES[number]; query: string }) {
   return (
     <Link href={`/forums/${category.slug}`} className="block">
-      <div className="glass rounded-lg p-3 hover:border-[#00FF41]/20 transition-all flex items-center gap-3">
+      <div className="glass rounded-lg p-3 hover:border-[#3B82F6]/20 transition-all flex items-center gap-3">
         <div
           className="flex size-9 shrink-0 items-center justify-center rounded-lg"
           style={{ backgroundColor: `${category.color}15`, color: category.color }}

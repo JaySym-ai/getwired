@@ -67,7 +67,7 @@ function CommentNode({ comment, children, allComments, depth, onLike, likedComme
   };
 
   return (
-    <div className={depth > 0 ? "ml-4 border-l border-[#00FF41]/20 pl-4" : ""}>
+    <div className={depth > 0 ? "ml-4 border-l border-[#3B82F6]/20 pl-4" : ""}>
       {!collapsed ? (
         <div className="py-2">
           <div className="flex items-center gap-2 mb-1">
@@ -91,7 +91,7 @@ function CommentNode({ comment, children, allComments, depth, onLike, likedComme
             {depth < MAX_DEPTH && (
               <button
                 onClick={() => setShowReply(!showReply)}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-[#00FF41] transition-colors"
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-[#3B82F6] transition-colors"
               >
                 <MessageSquare className="size-3" />
                 Reply
@@ -129,7 +129,7 @@ function CommentNode({ comment, children, allComments, depth, onLike, likedComme
             );
           })}
           {showMore && !showAll && (
-            <button onClick={() => setShowAll(true)} className="text-xs text-[#00FF41] hover:underline ml-4 py-1">
+            <button onClick={() => setShowAll(true)} className="text-xs text-[#3B82F6] hover:underline ml-4 py-1">
               Show {allChildren.length - 2} more {allChildren.length - 2 === 1 ? "reply" : "replies"}
             </button>
           )}

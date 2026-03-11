@@ -23,8 +23,8 @@ export default function NewsPage() {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-[#00FF41]/10">
-            <Newspaper className="size-5 text-[#00FF41]" />
+          <div className="flex size-10 items-center justify-center rounded-lg bg-[#3B82F6]/10">
+            <Newspaper className="size-5 text-[#3B82F6]" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">Tech News</h1>

@@ -52,14 +52,14 @@ function PostContent({ post, author, category, liked, bookmarked, likeCount, onL
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         {category && (<Link href={`/forums/${category.slug}`}><Badge variant="secondary" className="text-[10px]" style={{ color: category.color, borderColor: `${category.color}30` }}>{category.name}</Badge></Link>)}
         {post.tags.map((tag) => (<Badge key={tag} variant="secondary" className="text-[10px]">#{tag}</Badge>))}
-        {post.isPinned && (<Badge className="bg-[#00FF41]/10 text-[#00FF41] text-[10px] border-[#00FF41]/30">📌 Pinned</Badge>)}
+        {post.isPinned && (<Badge className="bg-[#3B82F6]/10 text-[#3B82F6] text-[10px] border-[#3B82F6]/30">📌 Pinned</Badge>)}
       </div>
       <h1 className="text-xl font-bold text-white mb-4">{post.title}</h1>
       <div className="flex items-center gap-3 mb-6">
         <UserAvatar src={author.avatar} name={author.name} size="md" />
         <div>
           <div className="flex items-center gap-2">
-            <Link href={`/profile/${author.username}`} className="text-sm font-medium text-white hover:text-[#00FF41] transition-colors">{author.name}</Link>
+            <Link href={`/profile/${author.username}`} className="text-sm font-medium text-white hover:text-[#3B82F6] transition-colors">{author.name}</Link>
             <RankBadge rank={author.rank} />
           </div>
           <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
@@ -73,7 +73,7 @@ function PostContent({ post, author, category, liked, bookmarked, likeCount, onL
       <div className="flex items-center gap-2">
         <Button variant={liked ? "secondary" : "ghost"} size="sm" onClick={onLike} className={`gap-1.5 ${liked ? "text-red-400" : ""}`}><Heart className={`size-3.5 ${liked ? "fill-current" : ""}`} />{likeCount}</Button>
         <Button variant="ghost" size="sm" className="gap-1.5"><MessageSquare className="size-3.5" />{post.commentCount}</Button>
-        <Button variant={bookmarked ? "secondary" : "ghost"} size="sm" onClick={onBookmark} className={`gap-1.5 ${bookmarked ? "text-[#00FF41]" : ""}`}><Bookmark className={`size-3.5 ${bookmarked ? "fill-current" : ""}`} />Save</Button>
+        <Button variant={bookmarked ? "secondary" : "ghost"} size="sm" onClick={onBookmark} className={`gap-1.5 ${bookmarked ? "text-[#3B82F6]" : ""}`}><Bookmark className={`size-3.5 ${bookmarked ? "fill-current" : ""}`} />Save</Button>
         <Button variant="ghost" size="sm" className="gap-1.5"><Share2 className="size-3.5" />Share</Button>
       </div>
     </div>
@@ -86,7 +86,7 @@ function AuthorCard({ author }: { author: (typeof DEMO_USERS)[number] }) {
       <div className="flex items-center gap-3 mb-3">
         <UserAvatar src={author.avatar} name={author.name} size="lg" />
         <div>
-          <Link href={`/profile/${author.username}`} className="text-sm font-semibold text-white hover:text-[#00FF41] transition-colors">{author.name}</Link>
+          <Link href={`/profile/${author.username}`} className="text-sm font-semibold text-white hover:text-[#3B82F6] transition-colors">{author.name}</Link>
           <div className="flex items-center gap-1.5 mt-0.5">
             <RankBadge rank={author.rank} />
             <span className="text-[10px] text-muted-foreground">{author.karma.toLocaleString()} karma</span>
@@ -114,7 +114,7 @@ function RelatedPosts({ posts }: { posts: Array<(typeof DEMO_POSTS)[number] & { 
           return (
             <Link key={rp.index} href={`/forums/${rp.category}/post-${rp.index}`} className="block group">
               <div className="rounded-lg p-3 transition-colors hover:bg-white/5">
-                <h4 className="text-xs font-medium text-white group-hover:text-[#00FF41] transition-colors line-clamp-2">{rp.title}</h4>
+                <h4 className="text-xs font-medium text-white group-hover:text-[#3B82F6] transition-colors line-clamp-2">{rp.title}</h4>
                 <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted-foreground">
                   <span>{rpAuthor?.name}</span><span>·</span>
                   <span className="flex items-center gap-0.5"><Heart className="size-2.5" /> {rp.likes}</span>

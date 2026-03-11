@@ -72,10 +72,10 @@ export function NotificationsClient() {
     <main className="mx-auto max-w-3xl px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Bell className="size-6 text-[#00FF41]" />
+          <Bell className="size-6 text-[#3B82F6]" />
           <h1 className="text-2xl font-bold text-white">Notifications</h1>
           {unreadCount > 0 && (
-            <span className="flex items-center justify-center rounded-full bg-[#00FF41]/20 px-2 py-0.5 text-xs font-medium text-[#00FF41]">
+            <span className="flex items-center justify-center rounded-full bg-[#3B82F6]/20 px-2 py-0.5 text-xs font-medium text-[#3B82F6]">
               {unreadCount} unread
             </span>
           )}
@@ -85,7 +85,7 @@ export function NotificationsClient() {
             variant="ghost"
             size="sm"
             onClick={markAllRead}
-            className="gap-1.5 text-[#00FF41] hover:text-[#00FF41]/80"
+            className="gap-1.5 text-[#3B82F6] hover:text-[#3B82F6]/80"
           >
             <CheckCheck className="size-4" />
             Mark all as read
@@ -94,12 +94,12 @@ export function NotificationsClient() {
       </div>
 
       <Tabs defaultValue="all" onValueChange={setActiveTab}>
-        <TabsList className="mb-4 bg-black/40 border border-green-500/10 flex-wrap">
+        <TabsList className="mb-4 bg-zinc-900/40 border border-white/8 flex-wrap">
           {FILTER_TABS.map((tab) => (
             <TabsTrigger
               key={tab.value}
               value={tab.value}
-              className="data-active:text-[#00FF41]"
+              className="data-active:text-[#3B82F6]"
             >
               {tab.label}
             </TabsTrigger>

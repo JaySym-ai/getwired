@@ -57,7 +57,7 @@ export function MessageBubble({ message, onReact, onOpenThread }: MessageBubbleP
       />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className={cn("text-sm font-semibold", message.isOwn ? "text-[#00FF41]" : "text-foreground")}>
+          <span className={cn("text-sm font-semibold", message.isOwn ? "text-[#3B82F6]" : "text-foreground")}>
             {message.author.displayName}
           </span>
           <RankBadge rank={message.author.rank} />
@@ -75,8 +75,8 @@ export function MessageBubble({ message, onReact, onOpenThread }: MessageBubbleP
                 className={cn(
                   "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs transition-colors",
                   r.reacted
-                    ? "border-[#00FF41]/40 bg-[#00FF41]/10 text-[#00FF41]"
-                    : "border-border bg-secondary/50 text-muted-foreground hover:border-[#00FF41]/30"
+                    ? "border-[#3B82F6]/40 bg-[#3B82F6]/10 text-[#3B82F6]"
+                    : "border-border bg-secondary/50 text-muted-foreground hover:border-[#3B82F6]/30"
                 )}
               >
                 <span>{r.emoji}</span>
@@ -90,7 +90,7 @@ export function MessageBubble({ message, onReact, onOpenThread }: MessageBubbleP
         {message.threadCount > 0 && (
           <button
             onClick={() => onOpenThread(message.id)}
-            className="mt-1 flex items-center gap-1 text-xs text-[#00FF41]/80 hover:text-[#00FF41] transition-colors"
+            className="mt-1 flex items-center gap-1 text-xs text-[#3B82F6]/80 hover:text-[#3B82F6] transition-colors"
           >
             <MessageSquare className="size-3" />
             <span>{message.threadCount} {message.threadCount === 1 ? "reply" : "replies"}</span>

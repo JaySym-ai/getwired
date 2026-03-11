@@ -66,7 +66,7 @@ export function PostComposer({ onPost }: PostComposerProps) {
     return (
       <button
         onClick={() => setExpanded(true)}
-        className="glass rounded-xl p-4 w-full flex items-center gap-3 text-left hover:border-[#00FF41]/20 transition-all cursor-pointer"
+        className="glass rounded-xl p-4 w-full flex items-center gap-3 text-left hover:border-[#3B82F6]/20 transition-all cursor-pointer"
       >
         <UserAvatar src={user.avatarUrl} name={user.displayName} size="md" />
         <span className="text-sm text-muted-foreground flex-1">
@@ -93,7 +93,7 @@ export function PostComposer({ onPost }: PostComposerProps) {
         placeholder="Post title"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        className="bg-black/30 border-green-500/10"
+        className="bg-zinc-900/30 border-white/8"
       />
 
       <Textarea
@@ -101,12 +101,12 @@ export function PostComposer({ onPost }: PostComposerProps) {
         value={content}
         onChange={(e) => setContent(e.target.value)}
         rows={4}
-        className="bg-black/30 border-green-500/10 resize-none"
+        className="bg-zinc-900/30 border-white/8 resize-none"
       />
 
       <div className="flex gap-2 flex-wrap">
         <Select value={category} onValueChange={(v) => setCategory(v ?? "")}>
-          <SelectTrigger className="w-44 bg-black/30 border-green-500/10">
+          <SelectTrigger className="w-44 bg-zinc-900/30 border-white/8">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>
@@ -122,7 +122,7 @@ export function PostComposer({ onPost }: PostComposerProps) {
           placeholder="Tags (comma separated)"
           value={tagInput}
           onChange={(e) => setTagInput(e.target.value)}
-          className="flex-1 min-w-[160px] bg-black/30 border-green-500/10"
+          className="flex-1 min-w-[160px] bg-zinc-900/30 border-white/8"
         />
       </div>
 

@@ -49,14 +49,14 @@ export function ProfileHeader({ user, isOwnProfile }: ProfileHeaderProps) {
   return (
     <div className="glass-strong rounded-2xl p-6 md:p-8 relative overflow-hidden">
       {/* Gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#00FF41]/5 via-transparent to-purple-500/5 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#3B82F6]/5 via-transparent to-purple-500/5 pointer-events-none" />
 
       <div className="relative flex flex-col md:flex-row gap-6 items-start">
         {/* Avatar */}
         <div className="relative group">
-          <UserAvatar src={user.avatar} name={user.name} size="xl" className="size-24 md:size-28 ring-2 ring-[#00FF41]/30" />
+          <UserAvatar src={user.avatar} name={user.name} size="xl" className="size-24 md:size-28 ring-2 ring-[#3B82F6]/30" />
           {isOwnProfile && (
-            <button className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+            <button className="absolute inset-0 flex items-center justify-center bg-zinc-900/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
               <Camera className="size-5 text-white" />
             </button>
           )}
@@ -86,7 +86,7 @@ export function ProfileHeader({ user, isOwnProfile }: ProfileHeaderProps) {
               <Calendar className="size-3.5" />
               Joined {memberSince}
             </span>
-            <span className="flex items-center gap-1 text-[#00FF41]">
+            <span className="flex items-center gap-1 text-[#3B82F6]">
               <Trophy className="size-3.5" />
               <span className="font-semibold">{user.karma.toLocaleString()}</span> karma
             </span>
@@ -124,7 +124,7 @@ export function ProfileHeader({ user, isOwnProfile }: ProfileHeaderProps) {
               variant={isFollowing ? "secondary" : "default"}
               size="sm"
               onClick={() => setIsFollowing(!isFollowing)}
-              className={isFollowing ? "" : "bg-[#00FF41] text-black hover:bg-[#00CC33]"}
+              className={isFollowing ? "" : "bg-[#3B82F6] text-white hover:bg-[#2563EB]"}
             >
               {isFollowing ? <UserCheck className="size-4 mr-1" /> : <UserPlus className="size-4 mr-1" />}
               {isFollowing ? "Following" : "Follow"}

@@ -9,11 +9,11 @@ const FOOTER_LINKS = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-green-500/10 bg-black/30">
+    <footer className="border-t border-white/8 bg-zinc-900/30">
       <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-4 py-6 sm:flex-row sm:justify-between">
         <p className="text-xs text-muted-foreground">
           Made with{" "}
-          <span className="font-medium text-[#00FF41]">Opus 4.6</span>
+          <span className="font-medium text-[#3B82F6]">Opus 4.6</span>
           {" · "}
           GetWired.dev © {new Date().getFullYear()}
         </p>
@@ -23,7 +23,7 @@ export function Footer() {
               key={link.href}
               href={link.href}
               {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-              className="text-xs text-muted-foreground transition-colors hover:text-[#00FF41]"
+              className="text-xs text-muted-foreground transition-colors hover:text-[#3B82F6]"
             >
               {link.label}
             </Link>

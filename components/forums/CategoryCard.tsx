@@ -61,7 +61,7 @@ export function CategoryCard({
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-white group-hover:text-[#00FF41] transition-colors">
+              <h3 className="text-sm font-semibold text-white group-hover:text-[#3B82F6] transition-colors">
                 {name}
               </h3>
               <Badge

@@ -25,12 +25,12 @@ export function BoostCard({ tier }: BoostCardProps) {
       className={cn(
         "glass relative flex flex-col p-6 transition-all hover:scale-[1.02]",
         tier.popular
-          ? "border-[#00FF41]/40 glow-green"
+          ? "border-[#3B82F6]/40 glow-green"
           : "border-white/5 hover:border-white/10"
       )}
     >
       {tier.popular && (
-        <Badge className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#00FF41] text-black font-semibold text-xs px-3">
+        <Badge className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#3B82F6] text-white font-semibold text-xs px-3">
           Popular
         </Badge>
       )}
@@ -39,13 +39,13 @@ export function BoostCard({ tier }: BoostCardProps) {
       <p className="mt-1 text-xs text-muted-foreground">{tier.duration}</p>
 
       <div className="mt-4 mb-6">
-        <span className="text-3xl font-bold text-[#00FF41]">{tier.price}</span>
+        <span className="text-3xl font-bold text-[#3B82F6]">{tier.price}</span>
       </div>
 
       <ul className="mb-6 flex-1 space-y-2">
         {tier.features.map((feature) => (
           <li key={feature} className="flex items-start gap-2 text-sm text-muted-foreground">
-            <Check className="mt-0.5 size-4 shrink-0 text-[#00FF41]" />
+            <Check className="mt-0.5 size-4 shrink-0 text-[#3B82F6]" />
             <span>{feature}</span>
           </li>
         ))}
@@ -56,7 +56,7 @@ export function BoostCard({ tier }: BoostCardProps) {
         className={cn(
           "w-full font-semibold",
           tier.popular
-            ? "bg-[#00FF41] text-black hover:bg-[#00CC33]"
+            ? "bg-[#3B82F6] text-white hover:bg-[#2563EB]"
             : "bg-white/10 text-white hover:bg-white/20"
         )}
       >

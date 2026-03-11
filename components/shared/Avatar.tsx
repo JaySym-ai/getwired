@@ -42,7 +42,7 @@ function getColorFromName(name: string): string {
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return FALLBACK_COLORS[Math.abs(hash) % FALLBACK_COLORS.length] ?? "#00FF41";
+  return FALLBACK_COLORS[Math.abs(hash) % FALLBACK_COLORS.length] ?? "#3B82F6";
 }
 
 interface UserAvatarProps {

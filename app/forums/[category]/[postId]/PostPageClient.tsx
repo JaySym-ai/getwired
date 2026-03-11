@@ -20,7 +20,7 @@ export function PostPageClient({ categorySlug, postIndex }: PostPageClientProps)
     return (
       <div className="mx-auto max-w-4xl px-4 py-12 text-center text-muted-foreground">
         <p className="text-sm">Post not found</p>
-        <Link href="/forums" className="text-[#00FF41] text-sm hover:underline mt-2 inline-block">
+        <Link href="/forums" className="text-[#3B82F6] text-sm hover:underline mt-2 inline-block">
           Back to Forums
         </Link>
       </div>

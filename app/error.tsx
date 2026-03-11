@@ -27,7 +27,7 @@ export default function Error({
       </p>
       <Button
         onClick={reset}
-        className="gap-2 bg-[#00FF41] text-black hover:bg-[#00FF41]/80 font-semibold"
+        className="gap-2 bg-[#3B82F6] text-white hover:bg-[#3B82F6]/80 font-semibold"
       >
         <RotateCcw className="size-4" />
         Try Again

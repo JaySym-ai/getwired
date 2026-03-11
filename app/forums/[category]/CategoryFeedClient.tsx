@@ -93,9 +93,9 @@ export function CategoryFeedClient({ slug }: CategoryFeedClientProps) {
                       <span className="text-xs text-muted-foreground">{author.name}</span>
                       <RankBadge rank={author.rank} />
                       <span className="text-[10px] text-muted-foreground">{formatTimeAgo(post.createdAt)}</span>
-                      {post.isPinned && <Badge className="bg-[#00FF41]/10 text-[#00FF41] text-[9px] border-[#00FF41]/30 px-1 py-0">📌</Badge>}
+                      {post.isPinned && <Badge className="bg-[#3B82F6]/10 text-[#3B82F6] text-[9px] border-[#3B82F6]/30 px-1 py-0">📌</Badge>}
                     </div>
-                    <h3 className="text-sm font-medium text-white group-hover:text-[#00FF41] transition-colors line-clamp-1">{post.title}</h3>
+                    <h3 className="text-sm font-medium text-white group-hover:text-[#3B82F6] transition-colors line-clamp-1">{post.title}</h3>
                     <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{post.content.slice(0, 150)}...</p>
                     <div className="flex items-center gap-3 mt-2">
                       {post.tags.slice(0, 3).map((tag) => (<Badge key={tag} variant="secondary" className="text-[9px] px-1.5 py-0">#{tag}</Badge>))}

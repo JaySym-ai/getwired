@@ -20,7 +20,7 @@ export function TagList({ tags, className, size = "default" }: TagListProps) {
           <Badge
             variant="secondary"
             className={cn(
-              "cursor-pointer transition-colors hover:bg-[#00FF41]/10 hover:text-[#00FF41]",
+              "cursor-pointer transition-colors hover:bg-[#3B82F6]/10 hover:text-[#3B82F6]",
               size === "sm" && "text-[10px] px-1.5 h-4"
             )}
           >

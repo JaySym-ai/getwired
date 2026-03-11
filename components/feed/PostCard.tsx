@@ -62,7 +62,7 @@ export function PostCard({ post, postIndex, liked, bookmarked, likeCount, onLike
     : null;
 
   return (
-    <article className="glass rounded-xl p-4 transition-all duration-200 hover:border-[#00FF41]/20 hover:glow-green-sm group">
+    <article className="glass rounded-xl p-4 transition-all duration-200 hover:border-[#3B82F6]/20 hover:glow-green-sm group">
       {/* Boosted indicator */}
       {post.isBoosted && (
         <div className="flex items-center gap-1.5 text-[10px] text-amber-400/70 mb-2">
@@ -84,7 +84,7 @@ export function PostCard({ post, postIndex, liked, bookmarked, likeCount, onLike
       </div>
 
       {/* Title */}
-      <Link href={postUrl} className="block mb-2 group-hover:text-[#00FF41] transition-colors">
+      <Link href={postUrl} className="block mb-2 group-hover:text-[#3B82F6] transition-colors">
         <h3 className="text-base font-semibold leading-snug">{post.title}</h3>
       </Link>
 
@@ -135,7 +135,7 @@ export function PostCard({ post, postIndex, liked, bookmarked, likeCount, onLike
 
         <div className="ml-auto flex items-center gap-0.5">
           <ShareButtons url={postUrl} title={post.title} />
-          <Button variant="ghost" size="icon-xs" onClick={onBookmark} className={bookmarked ? "text-[#00FF41]" : "text-muted-foreground hover:text-[#00FF41]"}>
+          <Button variant="ghost" size="icon-xs" onClick={onBookmark} className={bookmarked ? "text-[#3B82F6]" : "text-muted-foreground hover:text-[#3B82F6]"}>
             <Bookmark className={`size-3.5 ${bookmarked ? "fill-current" : ""}`} />
           </Button>
         </div>

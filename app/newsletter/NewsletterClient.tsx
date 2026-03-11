@@ -60,9 +60,9 @@ export function NewsletterClient() {
     <main className="mx-auto max-w-3xl px-4 py-8">
       {/* Hero */}
       <div className="mb-10 text-center">
-        <Mail className="mx-auto mb-4 size-10 text-[#00FF41]" />
+        <Mail className="mx-auto mb-4 size-10 text-[#3B82F6]" />
         <h1 className="text-3xl font-bold text-white md:text-4xl">
-          Stay <span className="text-[#00FF41] text-glow">Wired</span>
+          Stay <span className="text-[#3B82F6] text-glow">Wired</span>
         </h1>
         <p className="mx-auto mt-3 max-w-md text-muted-foreground">
           Weekly digest of the best posts, trending news, and community highlights.
@@ -71,8 +71,8 @@ export function NewsletterClient() {
 
       {/* Subscribe Form */}
       {subscribed ? (
-        <Card className="glass border-[#00FF41]/20 glow-green p-8 text-center mb-10">
-          <CheckCircle2 className="mx-auto mb-3 size-12 text-[#00FF41]" />
+        <Card className="glass border-[#3B82F6]/20 glow-green p-8 text-center mb-10">
+          <CheckCircle2 className="mx-auto mb-3 size-12 text-[#3B82F6]" />
           <h2 className="text-xl font-bold text-white mb-2">You&apos;re In! 🎉</h2>
           <p className="text-muted-foreground">
             Check your inbox for a confirmation. Your first issue arrives next Monday.
@@ -86,11 +86,11 @@ export function NewsletterClient() {
               placeholder="your@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="flex-1 bg-black/40 border-white/10 focus-visible:ring-[#00FF41]/30"
+              className="flex-1 bg-zinc-900/40 border-white/10 focus-visible:ring-[#3B82F6]/30"
             />
             <Button
               type="submit"
-              className="bg-[#00FF41] text-black font-semibold hover:bg-[#00CC33] px-6 shrink-0"
+              className="bg-[#3B82F6] text-white font-semibold hover:bg-[#2563EB] px-6 shrink-0"
             >
               Subscribe
             </Button>
@@ -108,7 +108,7 @@ export function NewsletterClient() {
       <div className="grid grid-cols-2 gap-4 mb-10 sm:grid-cols-4">
         {BENEFITS.map((b) => (
           <Card key={b.text} className="glass border-white/5 p-4 text-center">
-            <b.icon className="mx-auto mb-2 size-6 text-[#00FF41]" />
+            <b.icon className="mx-auto mb-2 size-6 text-[#3B82F6]" />
             <p className="text-sm font-medium text-white">{b.text}</p>
           </Card>
         ))}
@@ -117,15 +117,15 @@ export function NewsletterClient() {
       {/* Past Issues */}
       <section>
         <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="size-5 text-[#00FF41]" />
+          <Sparkles className="size-5 text-[#3B82F6]" />
           <h2 className="text-lg font-bold text-white">Past Issues</h2>
         </div>
         <div className="space-y-3">
           {PAST_ISSUES.map((issue) => (
             <Card key={issue.date} className="glass border-white/5 p-4 hover:border-white/10 transition-colors">
               <div className="flex items-start gap-3">
-                <div className="rounded-md bg-[#00FF41]/10 p-2 shrink-0">
-                  <Calendar className="size-4 text-[#00FF41]" />
+                <div className="rounded-md bg-[#3B82F6]/10 p-2 shrink-0">
+                  <Calendar className="size-4 text-[#3B82F6]" />
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">{issue.date}</p>

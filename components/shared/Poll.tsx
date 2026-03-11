@@ -62,10 +62,10 @@ export function Poll({ pollId, question, options, expiresAt }: PollProps) {
   const isExpired = expiresAt ? Date.now() > expiresAt : false;
 
   return (
-    <Card className="glass border-green-500/10">
+    <Card className="glass border-white/8">
       <CardContent className="p-4">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
-          <BarChart3 className="size-3.5 text-[#00FF41]" />
+          <BarChart3 className="size-3.5 text-[#3B82F6]" />
           <span className="font-medium">Poll</span>
         </div>
 
@@ -84,14 +84,14 @@ export function Poll({ pollId, question, options, expiresAt }: PollProps) {
                 disabled={hasVoted || isExpired}
                 className={`relative w-full rounded-lg border p-2.5 text-left text-sm transition-all ${
                   isSelected && !hasVoted
-                    ? "border-[#00FF41]/50 bg-[#00FF41]/10"
+                    ? "border-[#3B82F6]/50 bg-[#3B82F6]/10"
                     : "border-white/5 hover:border-white/10"
                 } ${hasVoted || isExpired ? "cursor-default" : "cursor-pointer"}`}
               >
                 {/* Vote bar background */}
                 {hasVoted && (
                   <div
-                    className="absolute inset-0 rounded-lg bg-[#00FF41]/10 transition-all duration-500"
+                    className="absolute inset-0 rounded-lg bg-[#3B82F6]/10 transition-all duration-500"
                     style={{ width: `${pct}%` }}
                   />
                 )}
@@ -100,7 +100,7 @@ export function Poll({ pollId, question, options, expiresAt }: PollProps) {
                     {!hasVoted && !isExpired && (
                       <div
                         className={`size-4 rounded-full border-2 shrink-0 ${
-                          isSelected ? "border-[#00FF41] bg-[#00FF41]" : "border-white/20"
+                          isSelected ? "border-[#3B82F6] bg-[#3B82F6]" : "border-white/20"
                         }`}
                       >
                         {isSelected && (
@@ -110,7 +110,7 @@ export function Poll({ pollId, question, options, expiresAt }: PollProps) {
                         )}
                       </div>
                     )}
-                    <span className={isSelected && hasVoted ? "font-medium text-[#00FF41]" : ""}>
+                    <span className={isSelected && hasVoted ? "font-medium text-[#3B82F6]" : ""}>
                       {option.text}
                     </span>
                   </div>
@@ -139,7 +139,7 @@ export function Poll({ pollId, question, options, expiresAt }: PollProps) {
                 size="sm"
                 disabled={selected === null}
                 onClick={handleVote}
-                className="bg-[#00FF41] text-black hover:bg-[#00FF41]/80 text-xs h-7"
+                className="bg-[#3B82F6] text-white hover:bg-[#3B82F6]/80 text-xs h-7"
               >
                 Vote
               </Button>

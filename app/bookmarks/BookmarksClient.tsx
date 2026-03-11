@@ -81,19 +81,19 @@ export function BookmarksClient() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
       <div className="flex items-center gap-3 mb-6">
-        <Bookmark className="size-6 text-[#00FF41]" />
+        <Bookmark className="size-6 text-[#3B82F6]" />
         <h1 className="text-2xl font-bold text-white">Bookmarks</h1>
       </div>
 
       <Tabs defaultValue="posts">
-        <TabsList className="mb-4 bg-black/40 border border-green-500/10">
-          <TabsTrigger value="posts" className="data-active:text-[#00FF41]">
+        <TabsList className="mb-4 bg-zinc-900/40 border border-white/8">
+          <TabsTrigger value="posts" className="data-active:text-[#3B82F6]">
             Posts ({posts.length})
           </TabsTrigger>
-          <TabsTrigger value="news" className="data-active:text-[#00FF41]">
+          <TabsTrigger value="news" className="data-active:text-[#3B82F6]">
             News ({news.length})
           </TabsTrigger>
-          <TabsTrigger value="users" className="data-active:text-[#00FF41]">
+          <TabsTrigger value="users" className="data-active:text-[#3B82F6]">
             Users ({users.length})
           </TabsTrigger>
         </TabsList>
@@ -128,7 +128,7 @@ function BookmarkList({ items, onRemove }: { items: BookmarkItem[]; onRemove: (i
         <Card key={item.id} className="glass border-white/5 p-3">
           <div className="flex items-start justify-between gap-3">
             <Link href={item.link} className="flex-1 min-w-0 group">
-              <h3 className="text-sm font-medium text-white group-hover:text-[#00FF41] transition-colors line-clamp-1">
+              <h3 className="text-sm font-medium text-white group-hover:text-[#3B82F6] transition-colors line-clamp-1">
                 {item.title}
               </h3>
               <p className="mt-0.5 text-xs text-muted-foreground">{item.subtitle}</p>

@@ -43,10 +43,10 @@ function getTagColor(count: number): string {
 
 export function TrendingTags() {
   return (
-    <Card className="glass border-green-500/10">
+    <Card className="glass border-white/8">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-          <TrendingUp className="size-4 text-[#00FF41]" />
+          <TrendingUp className="size-4 text-[#3B82F6]" />
           Trending Tags
         </CardTitle>
       </CardHeader>

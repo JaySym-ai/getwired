@@ -27,7 +27,7 @@ export function SignInClient() {
     <main className="mx-auto max-w-md px-4 py-12">
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold text-white">
-          Sign in to <span className="text-[#00FF41]">GetWired.dev</span>
+          Sign in to <span className="text-[#3B82F6]">GetWired.dev</span>
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">Select a demo user to continue</p>
       </div>
@@ -39,7 +39,7 @@ export function SignInClient() {
           return (
             <Card
               key={u.id}
-              className="glass border-white/5 p-3 cursor-pointer hover:border-[#00FF41]/30 transition-all"
+              className="glass border-white/5 p-3 cursor-pointer hover:border-[#3B82F6]/30 transition-all"
               onClick={() => handleSelectUser(u.id)}
             >
               <div className="flex items-center gap-3">
@@ -80,13 +80,13 @@ export function SignInClient() {
       <form onSubmit={(e) => { e.preventDefault(); toast.info("Demo mode — select a user above"); }} className="space-y-4">
         <div>
           <Label htmlFor="email" className="text-sm text-muted-foreground">Email</Label>
-          <Input id="email" type="email" placeholder="you@example.com" className="mt-1 bg-black/40 border-white/10" />
+          <Input id="email" type="email" placeholder="you@example.com" className="mt-1 bg-zinc-900/40 border-white/10" />
         </div>
         <div>
           <Label htmlFor="password" className="text-sm text-muted-foreground">Password</Label>
-          <Input id="password" type="password" placeholder="••••••••" className="mt-1 bg-black/40 border-white/10" />
+          <Input id="password" type="password" placeholder="••••••••" className="mt-1 bg-zinc-900/40 border-white/10" />
         </div>
-        <Button type="submit" className="w-full bg-[#00FF41] text-black font-semibold hover:bg-[#00CC33]">
+        <Button type="submit" className="w-full bg-[#3B82F6] text-white font-semibold hover:bg-[#2563EB]">
           Sign In
         </Button>
       </form>

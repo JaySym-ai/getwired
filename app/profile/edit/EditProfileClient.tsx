@@ -71,7 +71,7 @@ export function EditProfileClient() {
     <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Edit Profile</h1>
-        <Button onClick={handleSave} disabled={saving} className="bg-[#00FF41] text-black hover:bg-[#00CC33]">
+        <Button onClick={handleSave} disabled={saving} className="bg-[#3B82F6] text-white hover:bg-[#2563EB]">
           <Save className="size-4 mr-1" />
           {saving ? "Saving..." : "Save Changes"}
         </Button>
@@ -150,8 +150,8 @@ export function EditProfileClient() {
                 variant={form.techStack.includes(tech) ? "default" : "outline"}
                 className={`cursor-pointer transition-colors ${
                   form.techStack.includes(tech)
-                    ? "bg-[#00FF41]/20 text-[#00FF41] border-[#00FF41]/30 hover:bg-[#00FF41]/30"
-                    : "hover:border-[#00FF41]/30"
+                    ? "bg-[#3B82F6]/20 text-[#3B82F6] border-[#3B82F6]/30 hover:bg-[#3B82F6]/30"
+                    : "hover:border-[#3B82F6]/30"
                 }`}
                 onClick={() => toggleTech(tech)}
               >
@@ -193,7 +193,7 @@ export function EditProfileClient() {
           {demoUser.experience.map((exp, i) => (
             <div key={i} className="py-3 border-b border-white/5 last:border-0">
               <p className="font-medium text-foreground">{exp.title}</p>
-              <p className="text-sm text-[#00FF41]">{exp.company}</p>
+              <p className="text-sm text-[#3B82F6]">{exp.company}</p>
               <p className="text-xs text-muted-foreground">{exp.period}</p>
             </div>
           ))}
@@ -261,7 +261,7 @@ export function EditProfileClient() {
 
       {/* Bottom save */}
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving} className="bg-[#00FF41] text-black hover:bg-[#00CC33]">
+        <Button onClick={handleSave} disabled={saving} className="bg-[#3B82F6] text-white hover:bg-[#2563EB]">
           <Save className="size-4 mr-1" />
           {saving ? "Saving..." : "Save Changes"}
         </Button>

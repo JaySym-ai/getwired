@@ -35,7 +35,7 @@ export function DiscoverContent() {
 
       <main className="flex-1 min-w-0">
         <h1 className="text-2xl font-bold mb-1 flex items-center gap-2">
-          <span className="text-[#00FF41]">⚡</span> Discover
+          <span className="text-[#3B82F6]">⚡</span> Discover
         </h1>
         <p className="text-sm text-muted-foreground mb-6">
           Explore trending topics, top contributors, and upcoming events
@@ -45,10 +45,10 @@ export function DiscoverContent() {
           {/* Left column */}
           <div className="space-y-6">
             {/* Trending Posts */}
-            <Card className="glass border-green-500/10">
+            <Card className="glass border-white/8">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                  <Flame className="size-4 text-[#00FF41]" />
+                  <Flame className="size-4 text-[#3B82F6]" />
                   Trending Posts
                 </CardTitle>
               </CardHeader>
@@ -66,7 +66,7 @@ export function DiscoverContent() {
                         {i + 1}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium leading-snug group-hover:text-[#00FF41] transition-colors line-clamp-2">
+                        <p className="text-sm font-medium leading-snug group-hover:text-[#3B82F6] transition-colors line-clamp-2">
                           {post.title}
                         </p>
                         <div className="flex items-center gap-3 mt-1.5">
@@ -98,7 +98,7 @@ export function DiscoverContent() {
             <TrendingTags />
 
             {/* Who to Follow */}
-            <Card className="glass border-green-500/10">
+            <Card className="glass border-white/8">
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center gap-2 text-sm font-semibold">
                   👥 Who to Follow

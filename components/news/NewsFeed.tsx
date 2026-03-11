@@ -95,7 +95,7 @@ export function NewsFeed() {
             className={cn(
               "cursor-pointer transition-colors text-xs px-3 py-1",
               source === s
-                ? "bg-[#00FF41] text-black hover:bg-[#00FF41]/80"
+                ? "bg-[#3B82F6] text-white hover:bg-[#3B82F6]/80"
                 : "hover:bg-white/10"
             )}
             onClick={() => handleSourceChange(s)}
@@ -111,7 +111,7 @@ export function NewsFeed() {
           variant={sort === "latest" ? "secondary" : "ghost"}
           size="xs"
           onClick={() => setSort("latest")}
-          className={cn("gap-1.5", sort === "latest" && "text-[#00FF41]")}
+          className={cn("gap-1.5", sort === "latest" && "text-[#3B82F6]")}
         >
           <Clock className="size-3.5" />
           Latest
@@ -120,7 +120,7 @@ export function NewsFeed() {
           variant={sort === "popular" ? "secondary" : "ghost"}
           size="xs"
           onClick={() => setSort("popular")}
-          className={cn("gap-1.5", sort === "popular" && "text-[#00FF41]")}
+          className={cn("gap-1.5", sort === "popular" && "text-[#3B82F6]")}
         >
           <Flame className="size-3.5" />
           Popular

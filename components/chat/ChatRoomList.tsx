@@ -89,7 +89,7 @@ export function ChatRoomList({ activeRoomIndex, onSelectRoom }: ChatRoomListProp
       <div className="flex items-center justify-between border-b border-border px-3 py-3">
         <h2 className="text-sm font-semibold text-foreground">Chat</h2>
         <Button variant="ghost" size="icon" className="size-7">
-          <Plus className="size-4 text-[#00FF41]" />
+          <Plus className="size-4 text-[#3B82F6]" />
         </Button>
       </div>
 
@@ -186,15 +186,15 @@ function RoomItem({ icon, name, preview, unread, active, onClick }: RoomItemProp
       className={cn(
         "flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors",
         active
-          ? "bg-[#00FF41]/10 border border-[#00FF41]/30"
+          ? "bg-[#3B82F6]/10 border border-[#3B82F6]/30"
           : "hover:bg-secondary/50 border border-transparent"
       )}
     >
-      <span className={cn("shrink-0", active ? "text-[#00FF41]" : "text-muted-foreground")}>
+      <span className={cn("shrink-0", active ? "text-[#3B82F6]" : "text-muted-foreground")}>
         {icon}
       </span>
       <div className="min-w-0 flex-1">
-        <p className={cn("text-sm font-medium truncate", active ? "text-[#00FF41]" : "text-foreground")}>
+        <p className={cn("text-sm font-medium truncate", active ? "text-[#3B82F6]" : "text-foreground")}>
           {name}
         </p>
         {preview && (
@@ -202,7 +202,7 @@ function RoomItem({ icon, name, preview, unread, active, onClick }: RoomItemProp
         )}
       </div>
       {unread > 0 && (
-        <Badge className="shrink-0 bg-[#00FF41] text-black text-[10px] px-1.5 py-0 min-w-[18px] flex items-center justify-center">
+        <Badge className="shrink-0 bg-[#3B82F6] text-white text-[10px] px-1.5 py-0 min-w-[18px] flex items-center justify-center">
           {unread}
         </Badge>
       )}

@@ -88,9 +88,9 @@ export function MarketplaceClient() {
       {/* Hero */}
       <div className="mb-12 text-center">
         <div className="inline-flex items-center gap-2 mb-4">
-          <Rocket className="size-8 text-[#00FF41]" />
+          <Rocket className="size-8 text-[#3B82F6]" />
           <h1 className="text-3xl font-bold text-white md:text-4xl">
-            Amplify Your <span className="text-[#00FF41] text-glow">Reach</span>
+            Amplify Your <span className="text-[#3B82F6] text-glow">Reach</span>
           </h1>
         </div>
         <p className="mx-auto max-w-xl text-muted-foreground">
@@ -101,7 +101,7 @@ export function MarketplaceClient() {
       {/* Boost Section */}
       <section className="mb-14">
         <div className="flex items-center gap-2 mb-6">
-          <Zap className="size-5 text-[#00FF41]" />
+          <Zap className="size-5 text-[#3B82F6]" />
           <h2 className="text-xl font-bold text-white">Boost Your Post</h2>
         </div>
         <div className="grid gap-6 md:grid-cols-3">
@@ -114,20 +114,20 @@ export function MarketplaceClient() {
       {/* Advertise Section */}
       <section className="mb-14">
         <div className="flex items-center gap-2 mb-6">
-          <Megaphone className="size-5 text-[#00FF41]" />
+          <Megaphone className="size-5 text-[#3B82F6]" />
           <h2 className="text-xl font-bold text-white">Advertise</h2>
         </div>
         <div className="grid gap-6 md:grid-cols-2">
           {AD_OPTIONS.map((opt) => (
             <Card key={opt.title} className="glass border-white/5 p-6">
               <div className="flex items-start gap-4">
-                <div className="rounded-lg bg-[#00FF41]/10 p-2.5">
-                  <opt.icon className="size-5 text-[#00FF41]" />
+                <div className="rounded-lg bg-[#3B82F6]/10 p-2.5">
+                  <opt.icon className="size-5 text-[#3B82F6]" />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="font-semibold text-white">{opt.title}</h3>
-                    <Badge className="bg-[#00FF41]/10 text-[#00FF41] border-0 text-xs">
+                    <Badge className="bg-[#3B82F6]/10 text-[#3B82F6] border-0 text-xs">
                       {opt.price}
                     </Badge>
                   </div>
@@ -135,7 +135,7 @@ export function MarketplaceClient() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="border-white/10 hover:border-[#00FF41]/30 hover:text-[#00FF41]"
+                    className="border-white/10 hover:border-[#3B82F6]/30 hover:text-[#3B82F6]"
                     onClick={() => toast.info("Demo mode — payments not connected")}
                   >
                     Get Started
@@ -149,11 +149,11 @@ export function MarketplaceClient() {
 
       {/* Premium Section */}
       <section>
-        <Card className="glass border-[#00FF41]/20 glow-green p-8">
+        <Card className="glass border-[#3B82F6]/20 glow-green p-8">
           <div className="flex flex-col items-center text-center md:flex-row md:text-left md:items-start gap-8">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2 justify-center md:justify-start">
-                <Crown className="size-6 text-[#00FF41]" />
+                <Crown className="size-6 text-[#3B82F6]" />
                 <h2 className="text-xl font-bold text-white">Premium Membership</h2>
               </div>
               <p className="text-muted-foreground mb-6">
@@ -162,7 +162,7 @@ export function MarketplaceClient() {
               <ul className="grid gap-3 sm:grid-cols-2 mb-6">
                 {PREMIUM_FEATURES.map((f) => (
                   <li key={f.text} className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <f.icon className="size-4 text-[#00FF41] shrink-0" />
+                    <f.icon className="size-4 text-[#3B82F6] shrink-0" />
                     <span>{f.text}</span>
                   </li>
                 ))}
@@ -170,12 +170,12 @@ export function MarketplaceClient() {
             </div>
             <div className="flex flex-col items-center gap-3">
               <div>
-                <span className="text-4xl font-bold text-[#00FF41]">$9.99</span>
+                <span className="text-4xl font-bold text-[#3B82F6]">$9.99</span>
                 <span className="text-muted-foreground">/month</span>
               </div>
               <Button
                 size="lg"
-                className="bg-[#00FF41] text-black font-semibold hover:bg-[#00CC33] px-8"
+                className="bg-[#3B82F6] text-white font-semibold hover:bg-[#2563EB] px-8"
                 onClick={() => toast.info("Demo mode — payments not connected")}
               >
                 Subscribe Now

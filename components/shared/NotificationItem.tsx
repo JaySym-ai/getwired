@@ -27,7 +27,7 @@ const iconMap: Record<NotificationType, React.ElementType> = {
 const iconColorMap: Record<NotificationType, string> = {
   like: "text-red-400",
   comment: "text-blue-400",
-  mention: "text-[#00FF41]",
+  mention: "text-[#3B82F6]",
   follow: "text-purple-400",
   news: "text-amber-400",
 };
@@ -64,7 +64,7 @@ export function NotificationItem({
       onClick={onClick}
       className={cn(
         "flex items-start gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-white/5",
-        !isRead && "border-l-2 border-l-[#00FF41]",
+        !isRead && "border-l-2 border-l-[#3B82F6]",
         isRead && "border-l-2 border-l-transparent opacity-70",
         className
       )}
@@ -77,7 +77,7 @@ export function NotificationItem({
         <p className="mt-0.5 text-xs text-muted-foreground">{formatRelativeTime(createdAt)}</p>
       </div>
       {!isRead && (
-        <span className="mt-2 size-2 shrink-0 rounded-full bg-[#00FF41]" />
+        <span className="mt-2 size-2 shrink-0 rounded-full bg-[#3B82F6]" />
       )}
     </Link>
   );

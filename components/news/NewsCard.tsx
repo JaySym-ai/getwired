@@ -10,7 +10,7 @@ import { TagList } from "@/components/shared/TagList";
 const SOURCE_COLORS: Record<string, string> = {
   "Hacker News": "#FF6600",
   "The Verge": "#A855F7",
-  "TechCrunch": "#00FF41",
+  "TechCrunch": "#3B82F6",
   "Ars Technica": "#FF4500",
   "Wired": "#FFFFFF",
   "Dev.to": "#3B82F6",
@@ -57,7 +57,7 @@ export function NewsCard({ article, articleIndex }: NewsCardProps) {
   const sourceColor = SOURCE_COLORS[article.source] ?? "#888888";
 
   return (
-    <article className="glass rounded-xl p-4 transition-all duration-200 hover:border-[#00FF41]/20 hover:glow-green-sm group flex flex-col">
+    <article className="glass rounded-xl p-4 transition-all duration-200 hover:border-[#3B82F6]/20 hover:glow-green-sm group flex flex-col">
       {/* Source + Time */}
       <div className="flex items-center justify-between mb-2">
         <Badge
@@ -78,7 +78,7 @@ export function NewsCard({ article, articleIndex }: NewsCardProps) {
         href={article.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="block mb-2 group-hover:text-[#00FF41] transition-colors"
+        className="block mb-2 group-hover:text-[#3B82F6] transition-colors"
       >
         <h3 className="text-base font-semibold leading-snug flex items-start gap-1.5">
           <span className="flex-1">{article.title}</span>
@@ -100,7 +100,7 @@ export function NewsCard({ article, articleIndex }: NewsCardProps) {
           <Button
             variant="ghost"
             size="xs"
-            className="text-muted-foreground hover:text-[#00FF41] gap-1.5"
+            className="text-muted-foreground hover:text-[#3B82F6] gap-1.5"
           >
             <MessageSquare className="size-3.5" />
             Discuss on GetWired
@@ -110,7 +110,7 @@ export function NewsCard({ article, articleIndex }: NewsCardProps) {
           href={article.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[11px] text-muted-foreground hover:text-[#00FF41] transition-colors flex items-center gap-1"
+          className="text-[11px] text-muted-foreground hover:text-[#3B82F6] transition-colors flex items-center gap-1"
         >
           Read full article
           <ExternalLink className="size-3" />

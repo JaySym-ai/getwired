@@ -53,7 +53,7 @@ export function EventCard({ event }: EventCardProps) {
   };
 
   return (
-    <Card className="glass border-green-500/10 hover:border-[#00FF41]/20 transition-all">
+    <Card className="glass border-white/8 hover:border-[#3B82F6]/20 transition-all">
       <CardContent className="p-4">
         {/* Type badge */}
         <div className="flex items-center justify-between mb-3">
@@ -68,7 +68,7 @@ export function EventCard({ event }: EventCardProps) {
 
         {/* Date/time */}
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
-          <Calendar className="size-3.5 text-[#00FF41]" />
+          <Calendar className="size-3.5 text-[#3B82F6]" />
           <span>{formatDateTime(event.startTime)}</span>
         </div>
 
@@ -110,8 +110,8 @@ export function EventCard({ event }: EventCardProps) {
             onClick={handleRsvp}
             className={
               rsvp
-                ? "bg-[#00FF41] text-black hover:bg-[#00FF41]/80 text-xs h-7"
-                : "border-[#00FF41]/30 text-[#00FF41] hover:bg-[#00FF41]/10 text-xs h-7"
+                ? "bg-[#3B82F6] text-white hover:bg-[#3B82F6]/80 text-xs h-7"
+                : "border-[#3B82F6]/30 text-[#3B82F6] hover:bg-[#3B82F6]/10 text-xs h-7"
             }
           >
             {rsvp ? "Going ✓" : "RSVP"}

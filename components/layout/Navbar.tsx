@@ -59,12 +59,12 @@ export function Navbar() {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 z-50 h-14 border-b border-green-500/20 bg-black/50 backdrop-blur-xl">
+      <nav className="fixed top-0 left-0 right-0 z-50 h-14 border-b border-white/10 bg-zinc-900/50 backdrop-blur-xl">
         <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-4">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-1 text-lg font-bold tracking-tight">
             <span className="text-white">GetWired</span>
-            <span className="text-[#00FF41] text-glow">.dev</span>
+            <span className="text-[#3B82F6] text-glow">.dev</span>
           </Link>
 
           {/* Desktop Nav Links */}
@@ -96,7 +96,7 @@ export function Navbar() {
                 onSwitchUser={() => setSwitchDialogOpen(true)}
               />
             ) : (
-              <Button size="sm" onClick={() => signIn()} className="bg-[#00FF41] text-black hover:bg-[#00FF41]/80">
+              <Button size="sm" onClick={() => signIn()} className="bg-[#3B82F6] text-white hover:bg-[#3B82F6]/80">
                 Sign In
               </Button>
             )}
@@ -135,7 +135,7 @@ function UserMenu({
       <DropdownMenuTrigger className="hidden cursor-pointer rounded-full outline-none md:block">
         <UserAvatar src={user.avatarUrl} name={user.displayName} size="md" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8} className="w-56 bg-[#111] border border-green-500/20">
+      <DropdownMenuContent align="end" sideOffset={8} className="w-56 bg-zinc-900 border border-white/10">
         <DropdownMenuLabel className="flex items-center gap-2 px-2 py-2">
           <UserAvatar src={user.avatarUrl} name={user.displayName} size="md" />
           <div className="flex flex-col">
@@ -175,11 +175,11 @@ function MobileMenu() {
           <Menu className="size-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-72 border-r border-green-500/20 bg-[#0A0A0A]">
+      <SheetContent side="left" className="w-72 border-r border-white/10 bg-zinc-950">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-1 text-lg font-bold">
             <span className="text-white">GetWired</span>
-            <span className="text-[#00FF41]">.dev</span>
+            <span className="text-[#3B82F6]">.dev</span>
           </SheetTitle>
         </SheetHeader>
         <nav className="mt-6 flex flex-col gap-1 px-2">
@@ -212,7 +212,7 @@ function SwitchUserDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border border-green-500/20 bg-[#111]">
+      <DialogContent className="border border-white/10 bg-zinc-900">
         <DialogHeader>
           <DialogTitle className="text-white">Switch Demo User</DialogTitle>
         </DialogHeader>
@@ -223,7 +223,7 @@ function SwitchUserDialog({
               onClick={() => onSelect(u.id)}
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-white/5",
-                currentUserId === u.id && "bg-[#00FF41]/10 border border-[#00FF41]/30"
+                currentUserId === u.id && "bg-[#3B82F6]/10 border border-[#3B82F6]/30"
               )}
             >
               <UserAvatar src={u.avatarUrl} name={u.displayName} size="md" />

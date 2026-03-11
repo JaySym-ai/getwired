@@ -22,7 +22,7 @@ export function ChatPageClient() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] md:h-[calc(100vh-3.5rem)]">
+    <div className="flex h-full md:h-full">
       {/* Desktop sidebar */}
       <div className="hidden md:block w-[300px] shrink-0">
         <ChatRoomList activeRoomIndex={activeRoom} onSelectRoom={handleSelectRoom} />
@@ -46,8 +46,8 @@ export function ChatPageClient() {
           <ChatRoom roomIndex={activeRoom} />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-4 text-center px-4">
-            <div className="flex size-16 items-center justify-center rounded-2xl bg-[#00FF41]/10 border border-[#00FF41]/20">
-              <MessageSquare className="size-8 text-[#00FF41]" />
+            <div className="flex size-16 items-center justify-center rounded-2xl bg-[#3B82F6]/10 border border-[#3B82F6]/20">
+              <MessageSquare className="size-8 text-[#3B82F6]" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-foreground">Select a room</h2>
