@@ -1,27 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useMemo, useState } from "react";
 import { PostCard } from "./PostCard";
 import { InfiniteScroll } from "@/components/shared/InfiniteScroll";
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface DemoPost {
-  title: string;
-  content: string;
-  category: string;
-  tags: string[];
-  type: "post" | "poll";
-  likes: number;
-  commentCount: number;
-  views: number;
-  isBoosted: boolean;
-  isPinned: boolean;
-  createdAt: number;
-  authorIndex: number;
-}
-
 interface FeedListProps {
-  posts: DemoPost[];
+  posts: Array<any>;
   isLoading?: boolean;
 }
 
@@ -52,77 +38,62 @@ function PostSkeleton() {
 
 export function FeedList({ posts, isLoading }: FeedListProps) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const [loading, setLoading] = useState(false);
-  const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
-  const [bookmarkedPosts, setBookmarkedPosts] = useState<Set<number>>(new Set());
-  const [likeCounts, setLikeCounts] = useState<Record<number, number>>(() => {
-    const counts: Record<number, number> = {};
-    posts.forEach((p, i) => { counts[i] = p.likes; });
-    return counts;
-  });
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  const [bookmarkedPosts, setBookmarkedPosts] = useState<Set<string>>(new Set());
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
 
+  const visiblePosts = useMemo(() => posts.slice(0, visibleCount), [posts, visibleCount]);
   const hasMore = visibleCount < posts.length;
-  const visiblePosts = posts.slice(0, visibleCount);
-
-  const handleLoadMore = useCallback(() => {
-    if (loading) return;
-    setLoading(true);
-    // Simulate network delay
-    setTimeout(() => {
-      setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, posts.length));
-      setLoading(false);
-    }, 600);
-  }, [loading, posts.length]);
-
-  const handleLike = (postIndex: number) => {
-    setLikedPosts((prev) => {
-      const next = new Set(prev);
-      if (next.has(postIndex)) {
-        next.delete(postIndex);
-        setLikeCounts((c) => ({ ...c, [postIndex]: (c[postIndex] ?? 0) - 1 }));
-      } else {
-        next.add(postIndex);
-        setLikeCounts((c) => ({ ...c, [postIndex]: (c[postIndex] ?? 0) + 1 }));
-      }
-      return next;
-    });
-  };
-
-  const handleBookmark = (postIndex: number) => {
-    setBookmarkedPosts((prev) => {
-      const next = new Set(prev);
-      if (next.has(postIndex)) next.delete(postIndex);
-      else next.add(postIndex);
-      return next;
-    });
-  };
 
   if (isLoading) {
     return (
       <div className="space-y-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <PostSkeleton key={i} />
+        {Array.from({ length: 4 }).map((_, index) => (
+          <PostSkeleton key={index} />
         ))}
       </div>
     );
   }
 
   return (
-    <InfiniteScroll onLoadMore={handleLoadMore} hasMore={hasMore} isLoading={loading}>
+    <InfiniteScroll
+      onLoadMore={() => setVisibleCount((current) => Math.min(current + PAGE_SIZE, posts.length))}
+      hasMore={hasMore}
+      isLoading={false}
+    >
       <div className="space-y-4">
-        {visiblePosts.map((post, idx) => {
-          // Find original index in the full posts array
-          const originalIndex = posts.indexOf(post);
+        {visiblePosts.map((post) => {
+          const postId = post._id;
+          const likeCount = likeCounts[postId] ?? post.likes;
+
           return (
             <PostCard
-              key={`${post.title}-${originalIndex}`}
+              key={postId}
               post={post}
-              postIndex={originalIndex}
-              liked={likedPosts.has(originalIndex)}
-              bookmarked={bookmarkedPosts.has(originalIndex)}
-              likeCount={likeCounts[originalIndex] ?? post.likes}
-              onLike={() => handleLike(originalIndex)}
-              onBookmark={() => handleBookmark(originalIndex)}
+              liked={likedPosts.has(postId)}
+              bookmarked={bookmarkedPosts.has(postId)}
+              likeCount={likeCount}
+              onLike={() => {
+                setLikedPosts((current) => {
+                  const next = new Set(current);
+                  if (next.has(postId)) {
+                    next.delete(postId);
+                    setLikeCounts((counts) => ({ ...counts, [postId]: Math.max((counts[postId] ?? post.likes) - 1, 0) }));
+                  } else {
+                    next.add(postId);
+                    setLikeCounts((counts) => ({ ...counts, [postId]: (counts[postId] ?? post.likes) + 1 }));
+                  }
+                  return next;
+                });
+              }}
+              onBookmark={() => {
+                setBookmarkedPosts((current) => {
+                  const next = new Set(current);
+                  if (next.has(postId)) next.delete(postId);
+                  else next.add(postId);
+                  return next;
+                });
+              }}
             />
           );
         })}
@@ -130,4 +101,3 @@ export function FeedList({ posts, isLoading }: FeedListProps) {
     </InfiniteScroll>
   );
 }
-

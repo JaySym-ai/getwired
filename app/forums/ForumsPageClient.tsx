@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "convex/react";
 import { Search, MessageSquare } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { CategoryCard } from "@/components/forums/CategoryCard";
-import { DEMO_CATEGORIES } from "@/lib/demo-data";
+import { api } from "../../convex/_generated/api";
 
 export function ForumsPageClient() {
   const [search, setSearch] = useState("");
+  const categories = useQuery(api.forums.listCategories, {}) ?? [];
 
-  const filtered = DEMO_CATEGORIES.filter(
+  const filtered = categories.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.description.toLowerCase().includes(search.toLowerCase())
@@ -24,7 +26,7 @@ export function ForumsPageClient() {
           <h1 className="text-2xl font-bold text-foreground">Forums</h1>
         </div>
         <p className="text-sm text-muted-foreground">
-          Join the conversation across {DEMO_CATEGORIES.length} tech communities
+          Join the conversation across {categories.length} tech communities
         </p>
       </div>
 
@@ -62,4 +64,3 @@ export function ForumsPageClient() {
     </div>
   );
 }
-

@@ -1,97 +1,93 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useMemo, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { Heart, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/shared/Avatar";
 import { RankBadge } from "@/components/shared/Badge";
 import { CommentComposer } from "./CommentComposer";
-import { DEMO_USERS, DEMO_COMMENTS } from "@/lib/demo-data";
+import { api } from "../../convex/_generated/api";
 
 type SortOption = "best" | "new" | "old";
 
-interface DemoComment {
-  id: string;
-  postIndex: number;
-  authorIndex: number;
-  content: string;
-  likes: number;
-  createdAt: number;
-  parentId?: string;
-}
-
-interface CommentNodeProps {
-  comment: DemoComment;
-  children: DemoComment[];
-  allComments: DemoComment[];
-  depth: number;
-  onLike: (id: string) => void;
-  likedComments: Set<string>;
-}
-
-function formatTimeAgo(timestamp: number): string {
+function formatTimeAgo(timestamp: number) {
   const diff = Date.now() - timestamp;
   const minutes = Math.floor(diff / 60000);
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
-function CommentNode({ comment, children, allComments, depth, onLike, likedComments }: CommentNodeProps) {
+function sortComments(comments: Array<any>, sortBy: SortOption) {
+  const next = [...comments];
+  switch (sortBy) {
+    case "best":
+      return next.sort((left, right) => right.likes - left.likes);
+    case "new":
+      return next.sort((left, right) => right.createdAt - left.createdAt);
+    case "old":
+      return next.sort((left, right) => left.createdAt - right.createdAt);
+    default:
+      return next;
+  }
+}
+
+function CommentNode({
+  comment,
+  commentsByParent,
+  depth,
+  likedComments,
+  onLike,
+  onReply,
+}: {
+  comment: any;
+  commentsByParent: Map<string, Array<any>>;
+  depth: number;
+  likedComments: Set<string>;
+  onLike: (id: string) => void;
+  onReply: (parentId: string, content: string) => Promise<void>;
+}) {
   const [collapsed, setCollapsed] = useState(false);
   const [showReply, setShowReply] = useState(false);
-  const [localReplies, setLocalReplies] = useState<DemoComment[]>([]);
-  const author = DEMO_USERS[comment.authorIndex];
-  if (!author) return null;
-
+  const children = commentsByParent.get(comment._id) ?? [];
   const MAX_DEPTH = 4;
-  const allChildren = [...children, ...localReplies];
-  const showMore = allChildren.length > 3 && depth >= 2;
-  const [showAll, setShowAll] = useState(false);
-  const visibleChildren = showMore && !showAll ? allChildren.slice(0, 2) : allChildren;
-
-  const handleReply = (content: string) => {
-    const newComment: DemoComment = {
-      id: `local-${Date.now()}`,
-      postIndex: comment.postIndex,
-      authorIndex: 0,
-      content,
-      likes: 0,
-      createdAt: Date.now(),
-      parentId: comment.id,
-    };
-    setLocalReplies((prev) => [...prev, newComment]);
-    setShowReply(false);
-  };
 
   return (
     <div className={depth > 0 ? "ml-4 border-l border-[#3B82F6]/20 pl-4" : ""}>
       {!collapsed ? (
         <div className="py-2">
-          <div className="flex items-center gap-2 mb-1">
-            <UserAvatar src={author.avatar} name={author.name} size="sm" />
-            <span className="text-xs font-medium text-foreground">{author.name}</span>
-            <RankBadge rank={author.rank} />
+          <div className="mb-1 flex items-center gap-2">
+            <UserAvatar src={comment.author.avatar} name={comment.author.name} size="sm" />
+            <span className="text-xs font-medium text-foreground">{comment.author.name}</span>
+            <RankBadge rank={comment.author.rank} />
             <span className="text-[10px] text-muted-foreground">{formatTimeAgo(comment.createdAt)}</span>
-            <button onClick={() => setCollapsed(true)} className="ml-auto text-muted-foreground hover:text-foreground">
+            <button
+              onClick={() => setCollapsed(true)}
+              className="ml-auto text-muted-foreground hover:text-foreground"
+            >
               <ChevronUp className="size-3.5" />
             </button>
           </div>
-          <p className="text-sm text-foreground/90 mb-2 whitespace-pre-wrap">{comment.content}</p>
+          <p className="mb-2 whitespace-pre-wrap text-sm text-foreground/90">{comment.content}</p>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => onLike(comment.id)}
-              className={`flex items-center gap-1 text-xs transition-colors ${likedComments.has(comment.id) ? "text-red-400" : "text-muted-foreground hover:text-red-400"}`}
+              onClick={() => onLike(comment._id)}
+              className={`flex items-center gap-1 text-xs transition-colors ${
+                likedComments.has(comment._id)
+                  ? "text-red-400"
+                  : "text-muted-foreground hover:text-red-400"
+              }`}
             >
-              <Heart className={`size-3 ${likedComments.has(comment.id) ? "fill-current" : ""}`} />
-              {comment.likes + (likedComments.has(comment.id) ? 1 : 0)}
+              <Heart className={`size-3 ${likedComments.has(comment._id) ? "fill-current" : ""}`} />
+              {comment.likes + (likedComments.has(comment._id) ? 1 : 0)}
             </button>
             {depth < MAX_DEPTH && (
               <button
-                onClick={() => setShowReply(!showReply)}
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-[#3B82F6] transition-colors"
+                onClick={() => setShowReply((current) => !current)}
+                className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-[#3B82F6]"
               >
                 <MessageSquare className="size-3" />
                 Reply
@@ -100,113 +96,81 @@ function CommentNode({ comment, children, allComments, depth, onLike, likedComme
           </div>
           {showReply && (
             <div className="mt-3">
-              <CommentComposer compact onSubmit={handleReply} onCancel={() => setShowReply(false)} />
+              <CommentComposer
+                compact
+                onSubmit={(content) => void onReply(comment._id, content).then(() => setShowReply(false))}
+                onCancel={() => setShowReply(false)}
+              />
             </div>
           )}
         </div>
       ) : (
-        <button onClick={() => setCollapsed(false)} className="flex items-center gap-2 py-2 text-xs text-muted-foreground hover:text-foreground">
+        <button
+          onClick={() => setCollapsed(false)}
+          className="flex items-center gap-2 py-2 text-xs text-muted-foreground hover:text-foreground"
+        >
           <ChevronDown className="size-3.5" />
-          <UserAvatar src={author.avatar} name={author.name} size="sm" />
-          <span>{author.name}</span>
-          <span>· {allChildren.length} {allChildren.length === 1 ? "reply" : "replies"}</span>
+          <UserAvatar src={comment.author.avatar} name={comment.author.name} size="sm" />
+          <span>{comment.author.name}</span>
+          <span>
+            · {children.length} {children.length === 1 ? "reply" : "replies"}
+          </span>
         </button>
       )}
-      {!collapsed && visibleChildren.length > 0 && (
-        <div>
-          {visibleChildren.map((child) => {
-            const grandChildren = allComments.filter((c) => c.parentId === child.id);
-            return (
-              <CommentNode
-                key={child.id}
-                comment={child}
-                children={grandChildren}
-                allComments={allComments}
-                depth={depth + 1}
-                onLike={onLike}
-                likedComments={likedComments}
-              />
-            );
-          })}
-          {showMore && !showAll && (
-            <button onClick={() => setShowAll(true)} className="text-xs text-[#3B82F6] hover:underline ml-4 py-1">
-              Show {allChildren.length - 2} more {allChildren.length - 2 === 1 ? "reply" : "replies"}
-            </button>
-          )}
-        </div>
-      )}
+      {!collapsed &&
+        children.map((child) => (
+          <CommentNode
+            key={child._id}
+            comment={child}
+            commentsByParent={commentsByParent}
+            depth={depth + 1}
+            likedComments={likedComments}
+            onLike={onLike}
+            onReply={onReply}
+          />
+        ))}
     </div>
   );
 }
 
-interface CommentTreeProps {
-  postIndex: number;
-}
-
-export function CommentTree({ postIndex }: CommentTreeProps) {
+export function CommentTree({ postId }: { postId: string }) {
   const [sortBy, setSortBy] = useState<SortOption>("best");
   const [likedComments, setLikedComments] = useState<Set<string>>(new Set());
-  const [topLevelReplies, setTopLevelReplies] = useState<DemoComment[]>([]);
+  const comments = useQuery(api.comments.getByPost, { postId: postId as never }) ?? [];
+  const createComment = useMutation(api.comments.create);
 
-  const comments: DemoComment[] = useMemo(() => {
-    const postComments = DEMO_COMMENTS
-      .map((c, i) => ({
-        id: `comment-${i}`,
-        postIndex: c.postIndex,
-        authorIndex: c.authorIndex,
-        content: c.content,
-        likes: c.likes,
-        createdAt: c.createdAt,
-        parentId: c.isReply && c.parentIndex !== undefined ? `comment-${c.parentIndex}` : undefined,
-      }))
-      .filter((c) => c.postIndex === postIndex);
-    return postComments;
-  }, [postIndex]);
+  const commentsByParent = useMemo(() => {
+    const map = new Map<string, Array<any>>();
+    for (const comment of comments) {
+      if (!comment.parentId) {
+        continue;
+      }
 
-  const allComments = useMemo(() => [...comments, ...topLevelReplies], [comments, topLevelReplies]);
-
-  const rootComments = useMemo(() => {
-    const roots = allComments.filter((c) => !c.parentId);
-    switch (sortBy) {
-      case "best":
-        return [...roots].sort((a, b) => b.likes - a.likes);
-      case "new":
-        return [...roots].sort((a, b) => b.createdAt - a.createdAt);
-      case "old":
-        return [...roots].sort((a, b) => a.createdAt - b.createdAt);
-      default:
-        return roots;
+      const current = map.get(comment.parentId) ?? [];
+      current.push(comment);
+      map.set(comment.parentId, sortComments(current, sortBy));
     }
-  }, [allComments, sortBy]);
+    return map;
+  }, [comments, sortBy]);
 
-  const handleLike = useCallback((id: string) => {
-    setLikedComments((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+  const rootComments = useMemo(
+    () => sortComments(comments.filter((comment) => !comment.parentId), sortBy),
+    [comments, sortBy],
+  );
 
-  const handleNewComment = (content: string) => {
-    const newComment: DemoComment = {
-      id: `local-${Date.now()}`,
-      postIndex,
-      authorIndex: 0,
+  const handleReply = async (parentId: string | undefined, content: string) => {
+    await createComment({
+      postId: postId as never,
+      parentId: parentId ? (parentId as never) : undefined,
       content,
-      likes: 0,
-      createdAt: Date.now(),
-    };
-    setTopLevelReplies((prev) => [...prev, newComment]);
+    });
   };
-
-  const totalCount = allComments.length;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">
-          {totalCount} {totalCount === 1 ? "Comment" : "Comments"}
+          {comments.length} {comments.length === 1 ? "Comment" : "Comments"}
         </h3>
         <div className="flex items-center gap-1">
           {(["best", "new", "old"] as const).map((option) => (
@@ -215,7 +179,7 @@ export function CommentTree({ postIndex }: CommentTreeProps) {
               variant={sortBy === option ? "secondary" : "ghost"}
               size="xs"
               onClick={() => setSortBy(option)}
-              className="capitalize text-xs"
+              className="text-xs capitalize"
             >
               {option}
             </Button>
@@ -223,25 +187,28 @@ export function CommentTree({ postIndex }: CommentTreeProps) {
         </div>
       </div>
 
-      <CommentComposer placeholder="Write a comment..." onSubmit={handleNewComment} />
+      <CommentComposer placeholder="Write a comment..." onSubmit={(content) => void handleReply(undefined, content)} />
 
       <div className="space-y-1">
-        {rootComments.map((comment) => {
-          const children = allComments.filter((c) => c.parentId === comment.id);
-          return (
-            <CommentNode
-              key={comment.id}
-              comment={comment}
-              children={children}
-              allComments={allComments}
-              depth={0}
-              onLike={handleLike}
-              likedComments={likedComments}
-            />
-          );
-        })}
+        {rootComments.map((comment) => (
+          <CommentNode
+            key={comment._id}
+            comment={comment}
+            commentsByParent={commentsByParent}
+            depth={0}
+            likedComments={likedComments}
+            onLike={(id) => {
+              setLikedComments((current) => {
+                const next = new Set(current);
+                if (next.has(id)) next.delete(id);
+                else next.add(id);
+                return next;
+              });
+            }}
+            onReply={handleReply}
+          />
+        ))}
       </div>
     </div>
   );
 }
-

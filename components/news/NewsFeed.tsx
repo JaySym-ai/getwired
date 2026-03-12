@@ -1,27 +1,17 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "convex/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InfiniteScroll } from "@/components/shared/InfiniteScroll";
-import { NewsCard, type DemoNewsArticle } from "@/components/news/NewsCard";
-import { DEMO_NEWS_ARTICLES } from "@/lib/demo-data";
-import { Clock, Flame } from "lucide-react";
+import { NewsCard } from "@/components/news/NewsCard";
+import { Clock, History } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { api } from "../../convex/_generated/api";
 
-const SOURCES = [
-  "All",
-  "Hacker News",
-  "The Verge",
-  "TechCrunch",
-  "Ars Technica",
-  "Wired",
-  "Dev.to",
-  "Product Hunt",
-] as const;
-
-type SortMode = "latest" | "popular";
+type SortMode = "latest" | "oldest";
 
 const ITEMS_PER_PAGE = 6;
 
@@ -49,108 +39,116 @@ export function NewsFeed() {
   const [source, setSource] = useState<string>("All");
   const [sort, setSort] = useState<SortMode>("latest");
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
-  const [isLoading, setIsLoading] = useState(false);
 
-  const articles = useMemo(() => {
-    const filtered = source === "All"
-      ? [...DEMO_NEWS_ARTICLES]
-      : DEMO_NEWS_ARTICLES.filter((a) => a.source === source);
+  const sources = useQuery(api.news.listSources, {}) ?? [];
+  const articles = useQuery(api.news.list, {
+    limit: 100,
+    source: source === "All" ? undefined : source,
+  });
+  const sourceOptions = ["All", ...sources];
 
-    if (sort === "latest") {
-      filtered.sort((a, b) => b.publishedAt - a.publishedAt);
-    }
-    // "popular" — just reverse the default order for demo variety
-    if (sort === "popular") {
-      filtered.sort((a, b) => a.publishedAt - b.publishedAt);
+  const sortedArticles = useMemo(() => {
+    if (!articles) {
+      return [];
     }
 
-    return filtered as DemoNewsArticle[];
-  }, [source, sort]);
+    const next = [...articles];
+    next.sort((left, right) =>
+      sort === "latest"
+        ? right.publishedAt - left.publishedAt
+        : left.publishedAt - right.publishedAt,
+    );
+    return next;
+  }, [articles, sort]);
 
-  const visibleArticles = articles.slice(0, visibleCount);
-  const hasMore = visibleCount < articles.length;
-
-  const loadMore = useCallback(() => {
-    setIsLoading(true);
-    // Simulate network delay
-    setTimeout(() => {
-      setVisibleCount((prev) => prev + ITEMS_PER_PAGE);
-      setIsLoading(false);
-    }, 400);
-  }, []);
-
-  const handleSourceChange = (s: string) => {
-    setSource(s);
-    setVisibleCount(ITEMS_PER_PAGE);
-  };
+  const visibleArticles = sortedArticles.slice(0, visibleCount);
+  const hasMore = visibleCount < sortedArticles.length;
 
   return (
     <div className="space-y-6">
-      {/* Source filter bar */}
       <div className="flex flex-wrap gap-2">
-        {SOURCES.map((s) => (
+        {sourceOptions.map((option) => (
           <Badge
-            key={s}
-            variant={source === s ? "default" : "secondary"}
+            key={option}
+            variant={source === option ? "default" : "secondary"}
             className={cn(
-              "cursor-pointer transition-colors text-xs px-3 py-1",
-              source === s
+              "cursor-pointer px-3 py-1 text-xs transition-colors",
+              source === option
                 ? "bg-[#3B82F6] text-white hover:bg-[#3B82F6]/80"
-                : "hover:bg-accent"
+                : "hover:bg-accent",
             )}
-            onClick={() => handleSourceChange(s)}
+            onClick={() => {
+              setSource(option);
+              setVisibleCount(ITEMS_PER_PAGE);
+            }}
           >
-            {s}
+            {option}
           </Badge>
         ))}
       </div>
 
-      {/* Sort controls */}
       <div className="flex items-center gap-2">
         <Button
           variant={sort === "latest" ? "secondary" : "ghost"}
           size="xs"
-          onClick={() => setSort("latest")}
+          onClick={() => {
+            setSort("latest");
+            setVisibleCount(ITEMS_PER_PAGE);
+          }}
           className={cn("gap-1.5", sort === "latest" && "text-[#3B82F6]")}
         >
           <Clock className="size-3.5" />
           Latest
         </Button>
         <Button
-          variant={sort === "popular" ? "secondary" : "ghost"}
+          variant={sort === "oldest" ? "secondary" : "ghost"}
           size="xs"
-          onClick={() => setSort("popular")}
-          className={cn("gap-1.5", sort === "popular" && "text-[#3B82F6]")}
+          onClick={() => {
+            setSort("oldest");
+            setVisibleCount(ITEMS_PER_PAGE);
+          }}
+          className={cn("gap-1.5", sort === "oldest" && "text-[#3B82F6]")}
         >
-          <Flame className="size-3.5" />
-          Popular
+          <History className="size-3.5" />
+          Oldest
         </Button>
       </div>
 
-      {/* Articles grid */}
-      <InfiniteScroll onLoadMore={loadMore} hasMore={hasMore} isLoading={isLoading}>
+      {articles === undefined ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visibleArticles.map((article, idx) => (
-            <NewsCard
-              key={`${article.source}-${article.title}`}
-              article={article}
-              articleIndex={idx}
-            />
+          {Array.from({ length: 6 }).map((_, index) => (
+            <NewsCardSkeleton key={index} />
           ))}
-          {isLoading &&
-            Array.from({ length: 3 }).map((_, i) => (
-              <NewsCardSkeleton key={`skeleton-${i}`} />
-            ))}
         </div>
-      </InfiniteScroll>
+      ) : (
+        <InfiniteScroll
+          onLoadMore={() => setVisibleCount((current) => current + ITEMS_PER_PAGE)}
+          hasMore={hasMore}
+          isLoading={false}
+        >
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {visibleArticles.map((article) => (
+              <NewsCard key={article._id} article={article} />
+            ))}
+          </div>
+        </InfiniteScroll>
+      )}
 
-      {articles.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">
+      {articles && articles.length === 0 && (
+        <div className="py-12 text-center text-muted-foreground">
+          <p className="text-lg font-medium">News sync is starting</p>
+          <p className="mt-1 text-sm">
+            RSS feeds are configured. Articles will appear here after the first fetch completes.
+          </p>
+        </div>
+      )}
+
+      {articles && articles.length > 0 && sortedArticles.length === 0 && (
+        <div className="py-12 text-center text-muted-foreground">
           <p className="text-lg font-medium">No articles found</p>
-          <p className="text-sm mt-1">Try selecting a different source</p>
+          <p className="mt-1 text-sm">Try selecting a different source.</p>
         </div>
       )}
     </div>
   );
 }
-

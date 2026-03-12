@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,12 +13,17 @@ import { useAppAuth } from "@/lib/auth";
 import { TECH_STACKS, AI_TOOLS } from "@/lib/constants";
 import { api } from "../../../convex/_generated/api";
 import { toast } from "sonner";
-import { Save, User, Link2, Code2, Briefcase, FolderGit2, X } from "lucide-react";
+import { Save, User, Link2, Code2, Briefcase, FolderGit2, X, Camera } from "lucide-react";
+import { UserAvatar } from "@/components/shared/Avatar";
 
 export function EditProfileClient() {
   const { user } = useAppAuth();
   const updateCurrentProfile = useMutation(api.users.updateCurrentProfile);
+  const generateAvatarUploadUrl = useMutation(api.users.generateAvatarUploadUrl);
+  const saveCurrentAvatar = useMutation(api.users.saveCurrentAvatar);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState({
     name: user?.displayName ?? "",
     username: user?.username ?? "",
@@ -85,6 +90,43 @@ export function EditProfileClient() {
     }
   };
 
+  const handleAvatarChange = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const uploadUrl = await generateAvatarUploadUrl({});
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": file.type,
+        },
+        body: file,
+      });
+
+      if (!response.ok) {
+        throw new Error("Avatar upload failed");
+      }
+
+      const { storageId } = (await response.json()) as { storageId?: string };
+      if (!storageId) {
+        throw new Error("Upload did not return a storage id");
+      }
+
+      await saveCurrentAvatar({ storageId: storageId as never });
+      toast.success("Avatar updated successfully!");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update avatar");
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   if (!user) {
     return null;
   }
@@ -98,6 +140,37 @@ export function EditProfileClient() {
           {saving ? "Saving..." : "Save Changes"}
         </Button>
       </div>
+
+      <Card className="glass border-border">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Camera className="size-4" /> Avatar
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+          <UserAvatar src={user.avatarUrl} name={user.displayName} size="xl" />
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Upload a new avatar. Your previous Convex-stored avatar will be removed automatically.
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => void handleAvatarChange(event.target.files?.[0])}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={uploadingAvatar}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploadingAvatar ? "Uploading..." : "Change Avatar"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="glass border-border">
         <CardHeader>

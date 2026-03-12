@@ -1,57 +1,52 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "convex/react";
 import { ChatRoomList } from "@/components/chat/ChatRoomList";
 import { ChatRoom } from "@/components/chat/ChatRoom";
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, MessageSquare } from "lucide-react";
-import { DEMO_CHAT_ROOMS } from "@/lib/demo-data";
+import { api } from "../../convex/_generated/api";
 
 export function ChatPageClient() {
-  const [activeRoom, setActiveRoom] = useState<number | null>(null);
+  const rooms = useQuery(api.chat.listRooms, {}) ?? [];
+  const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const selectedRoomId = activeRoomId ?? rooms[0]?._id ?? null;
 
-  const handleSelectRoom = (index: number) => {
-    setActiveRoom(index);
+  const handleSelectRoom = (roomId: string) => {
+    setActiveRoomId(roomId);
     setMobileOpen(false);
   };
 
   return (
     <div className="flex h-full md:h-full">
-      {/* Desktop sidebar */}
-      <div className="hidden md:block w-[300px] shrink-0">
-        <ChatRoomList activeRoomIndex={activeRoom} onSelectRoom={handleSelectRoom} />
+      <div className="hidden w-[300px] shrink-0 md:block">
+        <ChatRoomList activeRoomId={selectedRoomId} onSelectRoom={handleSelectRoom} />
       </div>
 
-      {/* Mobile sidebar as Sheet */}
       <div className="md:hidden">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetTrigger className="fixed left-3 top-[4.25rem] z-30 inline-flex items-center justify-center size-9 rounded-lg bg-card border border-border shadow-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer">
+          <SheetTrigger className="fixed left-3 top-[4.25rem] z-30 inline-flex size-9 cursor-pointer items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-lg transition-colors hover:bg-muted hover:text-foreground">
             <Menu className="size-4" />
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-[300px]" showCloseButton={false}>
-            <ChatRoomList activeRoomIndex={activeRoom} onSelectRoom={handleSelectRoom} />
+          <SheetContent side="left" className="w-[300px] p-0" showCloseButton={false}>
+            <ChatRoomList activeRoomId={selectedRoomId} onSelectRoom={handleSelectRoom} />
           </SheetContent>
         </Sheet>
       </div>
 
-      {/* Chat area */}
-      <div className="flex-1 min-w-0">
-        {activeRoom !== null && activeRoom < DEMO_CHAT_ROOMS.length ? (
-          <ChatRoom key={activeRoom} roomIndex={activeRoom} />
+      <div className="min-w-0 flex-1">
+        {selectedRoomId ? (
+          <ChatRoom key={selectedRoomId} roomId={selectedRoomId} />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-4 text-center px-4">
-            <div className="flex size-16 items-center justify-center rounded-2xl bg-[#3B82F6]/10 border border-[#3B82F6]/20">
+          <div className="flex h-full flex-col items-center justify-center gap-4 px-4 text-center">
+            <div className="flex size-16 items-center justify-center rounded-2xl border border-[#3B82F6]/20 bg-[#3B82F6]/10">
               <MessageSquare className="size-8 text-[#3B82F6]" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-foreground">Select a room</h2>
-              <p className="mt-1 text-sm text-muted-foreground max-w-sm">
+              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
                 Choose a chat room from the sidebar to start chatting with the community.
               </p>
             </div>

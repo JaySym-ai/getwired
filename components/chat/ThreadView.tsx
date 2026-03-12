@@ -17,6 +17,11 @@ interface ThreadViewProps {
   replies: ChatMessageData[];
   onSendReply: (content: string) => void;
   onReact: (messageId: string, emoji: string) => void;
+  mentionOptions?: Array<{
+    _id?: string;
+    username: string;
+    name: string;
+  }>;
 }
 
 export function ThreadView({
@@ -26,6 +31,7 @@ export function ThreadView({
   replies,
   onSendReply,
   onReact,
+  mentionOptions,
 }: ThreadViewProps) {
   if (!parentMessage) return null;
 
@@ -65,9 +71,8 @@ export function ThreadView({
           </div>
         </ScrollArea>
 
-        <MessageInput onSend={onSendReply} />
+        <MessageInput onSend={onSendReply} mentionOptions={mentionOptions} />
       </SheetContent>
     </Sheet>
   );
 }
-

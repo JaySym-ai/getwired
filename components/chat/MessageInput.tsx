@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +9,6 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { SendHorizontal, Smile } from "lucide-react";
-import { DEMO_USERS } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
 
 const EMOJI_GRID = [
@@ -20,15 +19,20 @@ const EMOJI_GRID = [
 
 interface MessageInputProps {
   onSend: (content: string) => void;
+  mentionOptions?: Array<{
+    _id?: string;
+    username: string;
+    name: string;
+  }>;
 }
 
-export function MessageInput({ onSend }: MessageInputProps) {
+export function MessageInput({ onSend, mentionOptions = [] }: MessageInputProps) {
   const [value, setValue] = useState("");
   const [showMentions, setShowMentions] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const text = e.target.value;
     setValue(text);
 
@@ -43,38 +47,35 @@ export function MessageInput({ onSend }: MessageInputProps) {
       }
     }
     setShowMentions(false);
-  }, []);
+  };
 
-  const handleMention = useCallback((username: string) => {
+  const handleMention = (username: string) => {
     const lastAt = value.lastIndexOf("@");
     const newValue = value.slice(0, lastAt) + `@${username} `;
     setValue(newValue);
     setShowMentions(false);
     inputRef.current?.focus();
-  }, [value]);
+  };
 
-  const handleSend = useCallback(() => {
+  const handleSend = () => {
     const trimmed = value.trim();
     if (!trimmed) return;
     onSend(trimmed);
     setValue("");
     setShowMentions(false);
-  }, [value, onSend]);
+  };
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSend();
-      }
-      if (e.key === "Escape") {
-        setShowMentions(false);
-      }
-    },
-    [handleSend]
-  );
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+    if (e.key === "Escape") {
+      setShowMentions(false);
+    }
+  };
 
-  const filteredUsers = DEMO_USERS.filter((u) =>
+  const filteredUsers = mentionOptions.filter((u) =>
     u.username.toLowerCase().includes(mentionFilter) ||
     u.name.toLowerCase().includes(mentionFilter)
   );
@@ -86,7 +87,7 @@ export function MessageInput({ onSend }: MessageInputProps) {
         <div className="absolute bottom-full left-4 right-4 mb-1 rounded-lg border border-border bg-card shadow-lg overflow-hidden">
           {filteredUsers.map((user) => (
             <button
-              key={user.clerkId}
+              key={user._id ?? user.username}
               onClick={() => handleMention(user.username)}
               className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-secondary transition-colors text-left"
             >

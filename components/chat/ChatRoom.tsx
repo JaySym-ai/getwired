@@ -1,196 +1,63 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Settings, Users, FileText } from "lucide-react";
-import { useAppAuth } from "@/lib/auth";
-import { DEMO_CHAT_ROOMS, DEMO_CHAT_MESSAGES, DEMO_USERS } from "@/lib/demo-data";
-import { MessageBubble, type ChatMessageData, type ChatReaction } from "./MessageBubble";
+import { MessageBubble, type ChatReaction } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
 import { TypingIndicator } from "./TypingIndicator";
 import { ThreadView } from "./ThreadView";
+import { api } from "../../convex/_generated/api";
 
 interface ChatRoomProps {
-  roomIndex: number;
+  roomId: string;
 }
 
-function toChatAuthor(user: {
-  clerkId: string;
-  name: string;
-  avatar?: string;
-  rank: "newbie" | "active" | "contributor" | "expert" | "top" | "moderator";
-}) {
-  return {
-    id: user.clerkId,
-    avatarUrl: user.avatar,
-    displayName: user.name,
-    rank: user.rank,
-  };
-}
+export function ChatRoom({ roomId }: ChatRoomProps) {
+  const room = useQuery(api.chat.getRoomById, { roomId: roomId as never });
+  const messages = useQuery(api.chat.getMessages, { roomId: roomId as never, limit: 100 }) ?? [];
+  const users = useQuery(api.users.list, {}) ?? [];
+  const sendMessage = useMutation(api.chat.sendMessage);
+  const toggleReaction = useMutation(api.chat.toggleReaction);
 
-function buildMessages(roomIndex: number, currentUserId: string): ChatMessageData[] {
-  return DEMO_CHAT_MESSAGES
-    .filter((m) => m.roomIndex === roomIndex)
-    .map((m, i) => {
-      const demoAuthor = DEMO_USERS[m.authorIndex % DEMO_USERS.length]!;
-      const author = toChatAuthor(demoAuthor);
-      const reactionMap = new Map<string, { count: number; reacted: boolean }>();
-      for (const r of m.reactions) {
-        const existing = reactionMap.get(r.emoji);
-        if (existing) {
-          existing.count++;
-        } else {
-          reactionMap.set(r.emoji, { count: 1, reacted: false });
-        }
-      }
-      const reactions: ChatReaction[] = Array.from(reactionMap.entries()).map(
-        ([emoji, data]) => ({ emoji, count: data.count, reacted: data.reacted })
-      );
-      return {
-        id: `msg-${roomIndex}-${i}`,
-        author,
-        content: m.content,
-        reactions,
-        threadCount: i === 0 ? 2 : 0,
-        createdAt: m.createdAt,
-        isOwn: author.id === currentUserId,
-      };
-    });
-}
-
-export function ChatRoom({ roomIndex }: ChatRoomProps) {
-  const { user } = useAppAuth();
-  const room = DEMO_CHAT_ROOMS[roomIndex];
-  const currentUserId = user?.clerkId ?? "guest";
-
-  const [messages, setMessages] = useState<ChatMessageData[]>(() =>
-    buildMessages(roomIndex, currentUserId)
-  );
   const [threadMessageId, setThreadMessageId] = useState<string | null>(null);
-  const [threadReplies, setThreadReplies] = useState<ChatMessageData[]>([]);
+  const threadReplies = useQuery(
+    api.chat.getThreadMessages,
+    threadMessageId ? { threadId: threadMessageId as never } : "skip",
+  ) ?? [];
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  const handleSend = useCallback(
-    (content: string) => {
-      if (!user) return;
-      const newMsg: ChatMessageData = {
-        id: `msg-${roomIndex}-${Date.now()}`,
-        author: {
-          id: user.clerkId,
-          avatarUrl: user.avatarUrl,
-          displayName: user.displayName,
-          rank: user.rank,
-        },
-        content,
-        reactions: [],
-        threadCount: 0,
-        createdAt: Date.now(),
-        isOwn: true,
-      };
-      setMessages((prev) => [...prev, newMsg]);
-    },
-    [user, roomIndex]
-  );
-
-  const handleReact = useCallback((messageId: string, emoji: string) => {
-    setMessages((prev) =>
-      prev.map((m) => {
-        if (m.id !== messageId) return m;
-        const idx = m.reactions.findIndex((r) => r.emoji === emoji);
-        if (idx === -1) {
-          return { ...m, reactions: [...m.reactions, { emoji, count: 1, reacted: true }] };
-        }
-        const r = m.reactions[idx]!;
-        if (r.reacted) {
-          if (r.count <= 1) {
-            return { ...m, reactions: m.reactions.filter((_, i) => i !== idx) };
-          }
-          return { ...m, reactions: m.reactions.map((rx, i) => i === idx ? { ...rx, count: rx.count - 1, reacted: false } : rx) };
-        }
-        return { ...m, reactions: m.reactions.map((rx, i) => i === idx ? { ...rx, count: rx.count + 1, reacted: true } : rx) };
-      })
-    );
-  }, []);
-
-  const handleOpenThread = useCallback(
-    (messageId: string) => {
-      setThreadMessageId(messageId);
-      // Generate some demo replies for the first message
-      if (!user) return;
-      const parent = messages.find((m) => m.id === messageId);
-      if (parent && parent.threadCount > 0) {
-        const demoReplies: ChatMessageData[] = [
-          {
-            id: `thread-${messageId}-1`,
-            author: toChatAuthor(DEMO_USERS[1]!),
-            content: "Great point! I've been thinking about this too.",
-            reactions: [],
-            threadCount: 0,
-            createdAt: parent.createdAt + 300000,
-            isOwn: false,
-          },
-          {
-            id: `thread-${messageId}-2`,
-            author: toChatAuthor(DEMO_USERS[3]!),
-            content: "Agreed. We should discuss this more in the next meetup.",
-            reactions: [],
-            threadCount: 0,
-            createdAt: parent.createdAt + 600000,
-            isOwn: false,
-          },
-        ];
-        setThreadReplies(demoReplies);
-      } else {
-        setThreadReplies([]);
-      }
-    },
-    [messages, user]
-  );
-
-  const handleSendReply = useCallback(
-    (content: string) => {
-      if (!user) return;
-      const reply: ChatMessageData = {
-        id: `thread-reply-${Date.now()}`,
-        author: {
-          id: user.clerkId,
-          avatarUrl: user.avatarUrl,
-          displayName: user.displayName,
-          rank: user.rank,
-        },
-        content,
-        reactions: [],
-        threadCount: 0,
-        createdAt: Date.now(),
-        isOwn: true,
-      };
-      setThreadReplies((prev) => [...prev, reply]);
-    },
-    [user]
-  );
+  }, [messages.length]);
 
   const parentMessage = useMemo(
-    () => messages.find((m) => m.id === threadMessageId) ?? null,
-    [messages, threadMessageId]
+    () => messages.find((message) => message._id === threadMessageId) ?? null,
+    [messages, threadMessageId],
   );
 
-  if (!room) return null;
+  if (room === undefined) {
+    return null;
+  }
+
+  if (!room) {
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground">
+        Room not found
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">
-      {/* Room header */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-3 glass-strong">
+      <div className="glass-strong flex items-center justify-between border-b border-border px-4 py-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-foreground truncate">{room.name}</h2>
-          <p className="text-xs text-muted-foreground truncate">{room.description}</p>
+          <h2 className="truncate text-sm font-semibold text-foreground">{room.name}</h2>
+          <p className="truncate text-xs text-muted-foreground">{room.description}</p>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex shrink-0 items-center gap-1">
           <Button variant="ghost" size="icon" className="size-8">
             <Users className="size-4 text-muted-foreground" />
           </Button>
@@ -203,37 +70,90 @@ export function ChatRoom({ roomIndex }: ChatRoomProps) {
         </div>
       </div>
 
-
-
-      {/* Messages */}
       <ScrollArea className="flex-1 overflow-y-auto">
         <div className="py-4">
-          {messages.map((msg) => (
+          {messages.map((message) => (
             <MessageBubble
-              key={msg.id}
-              message={msg}
-              onReact={handleReact}
-              onOpenThread={handleOpenThread}
+              key={message._id}
+              message={{
+                id: message._id,
+                author: {
+                  id: message.author.clerkId,
+                  avatarUrl: message.author.avatar,
+                  displayName: message.author.name,
+                  rank: message.author.rank,
+                },
+                content: message.content,
+                reactions: message.reactions as ChatReaction[],
+                threadCount: message.threadCount,
+                createdAt: message.createdAt,
+                isOwn: message.isOwn,
+              }}
+              onReact={(messageId, emoji) => void toggleReaction({ messageId: messageId as never, emoji })}
+              onOpenThread={setThreadMessageId}
             />
           ))}
           <div ref={bottomRef} />
         </div>
       </ScrollArea>
 
-      {/* Typing indicator */}
       <TypingIndicator />
 
-      {/* Message input */}
-      <MessageInput onSend={handleSend} />
+      <MessageInput
+        onSend={(content) => void sendMessage({ roomId: room._id, content })}
+        mentionOptions={users.map((user) => ({
+          _id: user._id,
+          username: user.username,
+          name: user.name,
+        }))}
+      />
 
-      {/* Thread view */}
       <ThreadView
         open={threadMessageId !== null}
         onClose={() => setThreadMessageId(null)}
-        parentMessage={parentMessage}
-        replies={threadReplies}
-        onSendReply={handleSendReply}
-        onReact={handleReact}
+        parentMessage={
+          parentMessage
+            ? {
+                id: parentMessage._id,
+                author: {
+                  id: parentMessage.author.clerkId,
+                  avatarUrl: parentMessage.author.avatar,
+                  displayName: parentMessage.author.name,
+                  rank: parentMessage.author.rank,
+                },
+                content: parentMessage.content,
+                reactions: parentMessage.reactions as ChatReaction[],
+                threadCount: parentMessage.threadCount,
+                createdAt: parentMessage.createdAt,
+                isOwn: parentMessage.isOwn,
+              }
+            : null
+        }
+        replies={threadReplies.map((reply) => ({
+          id: reply._id,
+          author: {
+            id: reply.author.clerkId,
+            avatarUrl: reply.author.avatar,
+            displayName: reply.author.name,
+            rank: reply.author.rank,
+          },
+          content: reply.content,
+          reactions: reply.reactions as ChatReaction[],
+          threadCount: reply.threadCount,
+          createdAt: reply.createdAt,
+          isOwn: reply.isOwn,
+        }))}
+        onSendReply={(content) =>
+          threadMessageId
+            ? void sendMessage({ roomId: room._id, content, threadId: threadMessageId as never })
+            : undefined
+        }
+        onReact={(messageId, emoji) => void toggleReaction({ messageId: messageId as never, emoji })}
+        mentionOptions={users.map((user) => ({
+          _id: user._id,
+          username: user.username,
+          name: user.name,
+        }))}
       />
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useMutation, useQuery } from "convex/react";
 import { PenLine, X, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,29 +15,23 @@ import {
 } from "@/components/ui/select";
 import { UserAvatar } from "@/components/shared/Avatar";
 import { useAppAuth } from "@/lib/auth";
-import { DEMO_CATEGORIES } from "@/lib/demo-data";
 import { toast } from "sonner";
+import { api } from "../../convex/_generated/api";
 
-interface PostComposerProps {
-  onPost?: (post: {
-    title: string;
-    content: string;
-    category: string;
-    tags: string[];
-  }) => void;
-}
-
-export function PostComposer({ onPost }: PostComposerProps) {
+export function PostComposer() {
   const { user, isSignedIn } = useAppAuth();
+  const categories = useQuery(api.forums.listCategories, {}) ?? [];
+  const createPost = useMutation(api.posts.create);
   const [expanded, setExpanded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [category, setCategory] = useState<string>("");
+  const [category, setCategory] = useState("");
   const [tagInput, setTagInput] = useState("");
 
   if (!isSignedIn || !user) return null;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!title.trim() || !content.trim()) {
       toast.error("Title and content are required");
       return;
@@ -44,41 +39,50 @@ export function PostComposer({ onPost }: PostComposerProps) {
 
     const tags = tagInput
       .split(",")
-      .map((t) => t.trim().toLowerCase())
+      .map((tag) => tag.trim().toLowerCase())
       .filter(Boolean);
 
-    onPost?.({
-      title: title.trim(),
-      content: content.trim(),
-      category: category || "off-topic",
-      tags,
-    });
+    setSubmitting(true);
+    try {
+      await createPost({
+        title: title.trim(),
+        content: content.trim(),
+        category: category || "off-topic",
+        tags,
+      });
 
-    toast.success("Post created successfully!");
-    setTitle("");
-    setContent("");
-    setCategory("");
-    setTagInput("");
-    setExpanded(false);
+      toast.success("Post created successfully");
+      setTitle("");
+      setContent("");
+      setCategory("");
+      setTagInput("");
+      setExpanded(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create post");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (!expanded) {
     return (
       <button
         onClick={() => setExpanded(true)}
-        className="glass rounded-xl p-4 w-full flex items-center gap-3 text-left hover:border-[#3B82F6]/20 transition-all cursor-pointer"
+        className="glass w-full cursor-pointer rounded-xl p-4 text-left transition-all hover:border-[#3B82F6]/20"
       >
-        <UserAvatar src={user.avatarUrl} name={user.displayName} size="md" />
-        <span className="text-sm text-muted-foreground flex-1">
-          What&apos;s on your mind, {user.displayName.split(" ")[0]}?
-        </span>
-        <PenLine className="size-4 text-muted-foreground" />
+        <div className="flex items-center gap-3">
+          <UserAvatar src={user.avatarUrl} name={user.displayName} size="md" />
+          <span className="flex-1 text-sm text-muted-foreground">
+            What&apos;s on your mind, {user.displayName.split(" ")[0]}?
+          </span>
+          <PenLine className="size-4 text-muted-foreground" />
+        </div>
       </button>
     );
   }
 
   return (
-    <div className="glass rounded-xl p-4 space-y-3">
+    <div className="glass space-y-3 rounded-xl p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <UserAvatar src={user.avatarUrl} name={user.displayName} size="md" />
@@ -92,27 +96,27 @@ export function PostComposer({ onPost }: PostComposerProps) {
       <Input
         placeholder="Post title"
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        className="bg-muted/50 border-border"
+        onChange={(event) => setTitle(event.target.value)}
+        className="border-border bg-muted/50"
       />
 
       <Textarea
         placeholder="What do you want to share?"
         value={content}
-        onChange={(e) => setContent(e.target.value)}
+        onChange={(event) => setContent(event.target.value)}
         rows={4}
-        className="bg-muted/50 border-border resize-none"
+        className="resize-none border-border bg-muted/50"
       />
 
-      <div className="flex gap-2 flex-wrap">
-        <Select value={category} onValueChange={(v) => setCategory(v ?? "")}>
-          <SelectTrigger className="w-44 bg-muted/50 border-border">
+      <div className="flex flex-wrap gap-2">
+        <Select value={category} onValueChange={(value) => setCategory(value ?? "")}>
+          <SelectTrigger className="w-44 border-border bg-muted/50">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>
-            {DEMO_CATEGORIES.map((cat) => (
-              <SelectItem key={cat.slug} value={cat.slug}>
-                {cat.name}
+            {categories.map((item) => (
+              <SelectItem key={item.slug} value={item.slug}>
+                {item.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -121,15 +125,15 @@ export function PostComposer({ onPost }: PostComposerProps) {
         <Input
           placeholder="Tags (comma separated)"
           value={tagInput}
-          onChange={(e) => setTagInput(e.target.value)}
-          className="flex-1 min-w-[160px] bg-muted/50 border-border"
+          onChange={(event) => setTagInput(event.target.value)}
+          className="min-w-[160px] flex-1 border-border bg-muted/50"
         />
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={handleSubmit} className="gap-1.5">
+        <Button onClick={() => void handleSubmit()} disabled={submitting} className="gap-1.5">
           <Send className="size-3.5" />
-          Create Post
+          {submitting ? "Creating..." : "Create Post"}
         </Button>
       </div>
     </div>

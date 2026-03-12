@@ -3,59 +3,42 @@
 import { useState } from "react";
 import { ChatRoomList } from "@/components/chat/ChatRoomList";
 import { ChatRoom } from "@/components/chat/ChatRoom";
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { DEMO_CHAT_ROOMS } from "@/lib/demo-data";
 
 interface ChatRoomPageClientProps {
-  roomIndex: number;
+  roomId: string;
 }
 
-export function ChatRoomPageClient({ roomIndex }: ChatRoomPageClientProps) {
+export function ChatRoomPageClient({ roomId }: ChatRoomPageClientProps) {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const handleSelectRoom = (index: number) => {
-    router.push(`/chat/${index}`);
+  const handleSelectRoom = (nextRoomId: string) => {
+    router.push(`/chat/${nextRoomId}`);
     setMobileOpen(false);
   };
 
-  const validIndex = roomIndex >= 0 && roomIndex < DEMO_CHAT_ROOMS.length;
-
   return (
     <div className="flex h-[calc(100vh-3.5rem)]">
-      {/* Desktop sidebar */}
-      <div className="hidden md:block w-[300px] shrink-0">
-        <ChatRoomList activeRoomIndex={validIndex ? roomIndex : null} onSelectRoom={handleSelectRoom} />
+      <div className="hidden w-[300px] shrink-0 md:block">
+        <ChatRoomList activeRoomId={roomId} onSelectRoom={handleSelectRoom} />
       </div>
 
-      {/* Mobile sidebar */}
       <div className="md:hidden">
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetTrigger className="fixed left-3 top-[4.25rem] z-30 inline-flex items-center justify-center size-9 rounded-lg bg-card border border-border shadow-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer">
+          <SheetTrigger className="fixed left-3 top-[4.25rem] z-30 inline-flex size-9 cursor-pointer items-center justify-center rounded-lg border border-border bg-card text-muted-foreground shadow-lg transition-colors hover:bg-muted hover:text-foreground">
             <Menu className="size-4" />
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-[300px]" showCloseButton={false}>
-            <ChatRoomList activeRoomIndex={validIndex ? roomIndex : null} onSelectRoom={handleSelectRoom} />
+          <SheetContent side="left" className="w-[300px] p-0" showCloseButton={false}>
+            <ChatRoomList activeRoomId={roomId} onSelectRoom={handleSelectRoom} />
           </SheetContent>
         </Sheet>
       </div>
 
-      {/* Chat area */}
-      <div className="flex-1 min-w-0">
-        {validIndex ? (
-          <ChatRoom key={roomIndex} roomIndex={roomIndex} />
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-muted-foreground">Room not found</p>
-          </div>
-        )}
+      <div className="min-w-0 flex-1">
+        <ChatRoom roomId={roomId} />
       </div>
     </div>
   );

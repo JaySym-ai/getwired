@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/shared/Avatar";
 import { Calendar, Users } from "lucide-react";
-import { DEMO_USERS } from "@/lib/demo-data";
 import type { EventType } from "@/lib/types";
 
 const EVENT_COLORS: Record<EventType, { bg: string; text: string; label: string }> = {
@@ -15,21 +14,8 @@ const EVENT_COLORS: Record<EventType, { bg: string; text: string; label: string 
   hackathon: { bg: "bg-amber-500/20", text: "text-amber-400", label: "Hackathon" },
 };
 
-interface EventCardProps {
-  event: {
-    title: string;
-    description: string;
-    type: EventType;
-    hostIndex: number;
-    startTime: number;
-    endTime: number;
-    tags: string[];
-  };
-}
-
-function formatDateTime(ts: number): string {
-  const d = new Date(ts);
-  return d.toLocaleDateString("en-US", {
+function formatDateTime(ts: number) {
+  return new Date(ts).toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -38,71 +24,67 @@ function formatDateTime(ts: number): string {
   });
 }
 
-export function EventCard({ event }: EventCardProps) {
+export function EventCard({
+  event,
+}: {
+  event: {
+    _id: string;
+    title: string;
+    description: string;
+    type: EventType;
+    startTime: number;
+    tags: string[];
+    attendees: string[];
+    host?: {
+      name: string;
+      username: string;
+      avatar?: string;
+    } | null;
+  };
+}) {
   const [rsvp, setRsvp] = useState(false);
-  const [attendeeCount, setAttendeeCount] = useState(Math.floor(Math.random() * 40) + 10);
-  const host = DEMO_USERS[event.hostIndex];
+  const [attendeeCount, setAttendeeCount] = useState(event.attendees.length);
   const typeConfig = EVENT_COLORS[event.type];
-  const attendeeAvatars = DEMO_USERS.slice(0, 4);
 
   const handleRsvp = () => {
-    setRsvp((prev) => {
-      setAttendeeCount((c) => (prev ? c - 1 : c + 1));
-      return !prev;
+    setRsvp((current) => {
+      setAttendeeCount((count) => (current ? Math.max(count - 1, 0) : count + 1));
+      return !current;
     });
   };
 
   return (
-    <Card className="glass border-border hover:border-[#3B82F6]/20 transition-all">
+    <Card className="glass border-border transition-all hover:border-[#3B82F6]/20">
       <CardContent className="p-4">
-        {/* Type badge */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="mb-3 flex items-center justify-between">
           <Badge className={`${typeConfig.bg} ${typeConfig.text} border-none text-[10px] font-semibold`}>
             {typeConfig.label}
           </Badge>
         </div>
 
-        {/* Title & description */}
-        <h3 className="text-sm font-semibold mb-1.5">{event.title}</h3>
-        <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{event.description}</p>
+        <h3 className="mb-1.5 text-sm font-semibold">{event.title}</h3>
+        <p className="mb-3 line-clamp-2 text-xs text-muted-foreground">{event.description}</p>
 
-        {/* Date/time */}
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
+        <div className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
           <Calendar className="size-3.5 text-[#3B82F6]" />
           <span>{formatDateTime(event.startTime)}</span>
         </div>
 
-        {/* Host */}
-        {host && (
-          <div className="flex items-center gap-2 mb-3">
-            <UserAvatar src={host.avatar} name={host.name} size="sm" />
+        {event.host && (
+          <div className="mb-3 flex items-center gap-2">
+            <UserAvatar src={event.host.avatar} name={event.host.name} size="sm" />
             <div>
-              <p className="text-xs font-medium">Hosted by {host.name}</p>
-              <p className="text-[10px] text-muted-foreground">@{host.username}</p>
+              <p className="text-xs font-medium">Hosted by {event.host.name}</p>
+              <p className="text-[10px] text-muted-foreground">@{event.host.username}</p>
             </div>
           </div>
         )}
 
-        {/* Attendees + RSVP */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {/* Avatar stack */}
-            <div className="flex -space-x-2">
-              {attendeeAvatars.map((u) => (
-                <UserAvatar
-                  key={u.clerkId}
-                  src={u.avatar}
-                  name={u.name}
-                  size="sm"
-                  className="ring-2 ring-[#0A0A0A]"
-                />
-              ))}
-            </div>
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Users className="size-3" />
-              {attendeeCount}
-            </span>
-          </div>
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Users className="size-3" />
+            {attendeeCount}
+          </span>
 
           <Button
             size="sm"
@@ -110,8 +92,8 @@ export function EventCard({ event }: EventCardProps) {
             onClick={handleRsvp}
             className={
               rsvp
-                ? "bg-[#3B82F6] text-white hover:bg-[#3B82F6]/80 text-xs h-7"
-                : "border-[#3B82F6]/30 text-[#3B82F6] hover:bg-[#3B82F6]/10 text-xs h-7"
+                ? "h-7 bg-[#3B82F6] text-xs text-white hover:bg-[#3B82F6]/80"
+                : "h-7 border-[#3B82F6]/30 text-xs text-[#3B82F6] hover:bg-[#3B82F6]/10"
             }
           >
             {rsvp ? "Going ✓" : "RSVP"}
@@ -121,4 +103,3 @@ export function EventCard({ event }: EventCardProps) {
     </Card>
   );
 }
-

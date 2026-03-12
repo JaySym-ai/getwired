@@ -9,8 +9,10 @@
  */
 
 import type * as bookmarks from "../bookmarks.js";
+import type * as bootstrap from "../bootstrap.js";
 import type * as chat from "../chat.js";
 import type * as comments from "../comments.js";
+import type * as crons from "../crons.js";
 import type * as events from "../events.js";
 import type * as forums from "../forums.js";
 import type * as gamification from "../gamification.js";
@@ -33,8 +35,10 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   bookmarks: typeof bookmarks;
+  bootstrap: typeof bootstrap;
   chat: typeof chat;
   comments: typeof comments;
+  crons: typeof crons;
   events: typeof events;
   forums: typeof forums;
   gamification: typeof gamification;

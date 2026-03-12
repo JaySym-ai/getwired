@@ -6,8 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { MessageSquare, ThumbsUp, Eye, ArrowRight } from "lucide-react";
 
 interface PostItem {
+  id?: string;
   title: string;
   category?: string;
+  categorySlug?: string;
   likes: number;
   commentCount: number;
   views: number;
@@ -15,7 +17,9 @@ interface PostItem {
 }
 
 interface CommentItem {
+  id?: string;
   content: string;
+  postId?: string;
   postTitle: string;
   likes: number;
   createdAt: number;
@@ -165,4 +169,3 @@ export function ActivityFeed({ posts, comments, mode = "all" }: ActivityFeedProp
     </div>
   );
 }
-

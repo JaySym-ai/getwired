@@ -8,6 +8,7 @@ export default defineSchema({
     username: v.string(),
     email: v.string(),
     avatar: v.optional(v.string()),
+    avatarStorageId: v.optional(v.id("_storage")),
     bio: v.optional(v.string()),
     location: v.optional(v.string()),
     website: v.optional(v.string()),
@@ -83,7 +84,9 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_author", ["authorId"])
+    .index("by_author_createdAt", ["authorId", "createdAt"])
     .index("by_category", ["category"])
+    .index("by_category_createdAt", ["category", "createdAt"])
     .index("by_createdAt", ["createdAt"])
     .index("by_likes", ["likes"]),
 
@@ -97,8 +100,11 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_post", ["postId"])
+    .index("by_post_createdAt", ["postId", "createdAt"])
     .index("by_author", ["authorId"])
-    .index("by_parent", ["parentId"]),
+    .index("by_author_createdAt", ["authorId", "createdAt"])
+    .index("by_parent", ["parentId"])
+    .index("by_parent_createdAt", ["parentId", "createdAt"]),
 
   forumCategories: defineTable({
     name: v.string(),
@@ -119,7 +125,7 @@ export default defineSchema({
     categorySlug: v.optional(v.string()),
     members: v.array(v.id("users")),
     description: v.optional(v.string()),
-    createdBy: v.id("users"),
+    createdBy: v.optional(v.id("users")),
     isDemo: v.boolean(),
     createdAt: v.number(),
   })
@@ -142,10 +148,27 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_room", ["roomId"])
+    .index("by_room_createdAt", ["roomId", "createdAt"])
     .index("by_thread", ["threadId"])
+    .index("by_thread_createdAt", ["threadId", "createdAt"])
     .index("by_createdAt", ["createdAt"]),
 
+  rssFeeds: defineTable({
+    name: v.string(),
+    url: v.string(),
+    siteUrl: v.optional(v.string()),
+    categorySlug: v.optional(v.string()),
+    isActive: v.boolean(),
+    lastFetchedAt: v.optional(v.number()),
+    lastError: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_url", ["url"])
+    .index("by_isActive", ["isActive"]),
+
   newsArticles: defineTable({
+    feedId: v.optional(v.id("rssFeeds")),
+    externalId: v.string(),
     title: v.string(),
     url: v.string(),
     source: v.string(),
@@ -157,7 +180,11 @@ export default defineSchema({
     isDemo: v.boolean(),
     createdAt: v.number(),
   })
+    .index("by_externalId", ["externalId"])
+    .index("by_url", ["url"])
+    .index("by_feed_publishedAt", ["feedId", "publishedAt"])
     .index("by_source", ["source"])
+    .index("by_source_publishedAt", ["source", "publishedAt"])
     .index("by_publishedAt", ["publishedAt"]),
 
   notifications: defineTable({
@@ -254,6 +281,17 @@ export default defineSchema({
     subscribedAt: v.number(),
   }).index("by_email", ["email"]),
 
+  mediaFiles: defineTable({
+    storageId: v.id("_storage"),
+    folder: v.string(),
+    kind: v.string(),
+    ownerId: v.optional(v.id("users")),
+    createdAt: v.number(),
+  })
+    .index("by_storageId", ["storageId"])
+    .index("by_owner_folder", ["ownerId", "folder"])
+    .index("by_folder", ["folder"]),
+
   moderationLogs: defineTable({
     contentType: v.union(v.literal("post"), v.literal("comment"), v.literal("chat")),
     contentId: v.string(),
@@ -266,4 +304,3 @@ export default defineSchema({
     .index("by_author", ["authorId"])
     .index("by_createdAt", ["createdAt"]),
 });
-

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { DEMO_CHAT_ROOMS } from "@/lib/demo-data";
 import { ChatRoomPageClient } from "./ChatRoomPageClient";
 
 interface PageProps {
@@ -8,29 +7,22 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { roomId } = await params;
-  const index = parseInt(roomId, 10);
-  const room = DEMO_CHAT_ROOMS[index];
-  const name = room?.name ?? "Chat Room";
-
-  const desc = room?.description ?? "Chat room on GetWired.dev";
   return {
-    title: name,
-    description: desc,
+    title: "Chat Room",
+    description: `Live chat room ${roomId} on GetWired.dev`,
     openGraph: {
-      title: `${name} | GetWired.dev`,
-      description: desc,
+      title: "Chat Room | GetWired.dev",
+      description: "Join the live conversation on GetWired.dev.",
     },
     twitter: {
       card: "summary",
-      title: `${name} | GetWired.dev`,
-      description: desc,
+      title: "Chat Room | GetWired.dev",
+      description: "Join the live conversation on GetWired.dev.",
     },
   };
 }
 
 export default async function ChatRoomPage({ params }: PageProps) {
   const { roomId } = await params;
-  const index = parseInt(roomId, 10);
-  return <ChatRoomPageClient roomIndex={index} />;
+  return <ChatRoomPageClient roomId={roomId} />;
 }
-

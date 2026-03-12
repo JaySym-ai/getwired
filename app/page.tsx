@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useQuery } from "convex/react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { FeedList } from "@/components/feed/FeedList";
 import { PostComposer } from "@/components/feed/PostComposer";
@@ -10,44 +11,12 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Flame, Clock, Users, TrendingUp, Calendar, UserPlus } from "lucide-react";
-import { DEMO_POSTS, DEMO_USERS, DEMO_EVENTS } from "@/lib/demo-data";
+import { api } from "../convex/_generated/api";
 
 type FeedTab = "hot" | "new" | "following" | "trending";
 
-// Build enriched posts from demo data
-function getFilteredPosts(tab: FeedTab) {
-  const posts = [...DEMO_POSTS];
-  switch (tab) {
-    case "hot":
-      return posts.sort((a, b) => {
-        const scoreA = a.likes + a.commentCount * 2 + a.views * 0.1;
-        const scoreB = b.likes + b.commentCount * 2 + b.views * 0.1;
-        return scoreB - scoreA;
-      });
-    case "new":
-      return posts.sort((a, b) => b.createdAt - a.createdAt);
-    case "following":
-      // Simulate following: show posts from first 3 authors
-      return posts
-        .filter((p) => p.authorIndex <= 2)
-        .sort((a, b) => b.createdAt - a.createdAt);
-    case "trending":
-      return posts.sort((a, b) => b.views - a.views);
-    default:
-      return posts;
-  }
-}
-
-const TRENDING_TAGS = [
-  "ai", "gpt-5", "react", "nextjs", "rust", "security",
-  "startup", "career", "typescript", "llm",
-];
-
-const SUGGESTED_USERS = DEMO_USERS.slice(1, 4);
-
-function formatEventDate(ts: number): string {
-  const d = new Date(ts);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+function formatEventDate(ts: number) {
+  return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 const ORG_JSON_LD = {
@@ -61,25 +30,31 @@ const ORG_JSON_LD = {
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<FeedTab>("hot");
-  const [localPosts, setLocalPosts] = useState(DEMO_POSTS);
+  const posts = useQuery(api.posts.listDetailed, { limit: 50 }) ?? [];
+  const tagStats = useQuery(api.posts.listTagStats, {}) ?? [];
+  const upcomingEvents = useQuery(api.events.getUpcoming, { limit: 3 }) ?? [];
+  const suggestedUsers = useQuery(api.users.listSuggestions, { limit: 3 }) ?? [];
 
-  const filteredPosts = useMemo(() => getFilteredPosts(activeTab), [activeTab]);
+  const filteredPosts = useMemo(() => {
+    const next = [...posts];
 
-  const handleNewPost = (post: { title: string; content: string; category: string; tags: string[] }) => {
-    const newPost = {
-      ...post,
-      type: "post" as const,
-      likes: 0,
-      commentCount: 0,
-      views: 1,
-      isBoosted: false,
-      isPinned: false,
-      isDemo: false,
-      createdAt: Date.now(),
-      authorIndex: 0,
-    };
-    setLocalPosts((prev) => [newPost, ...prev]);
-  };
+    switch (activeTab) {
+      case "hot":
+        return next.sort((left, right) => {
+          const leftScore = left.likes + left.commentCount * 2 + left.views * 0.1;
+          const rightScore = right.likes + right.commentCount * 2 + right.views * 0.1;
+          return rightScore - leftScore;
+        });
+      case "new":
+        return next.sort((left, right) => right.createdAt - left.createdAt);
+      case "trending":
+        return next.sort((left, right) => right.views - left.views);
+      case "following":
+        return next.sort((left, right) => right.createdAt - left.createdAt);
+      default:
+        return next;
+    }
+  }, [activeTab, posts]);
 
   return (
     <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6">
@@ -89,13 +64,12 @@ export default function Home() {
       />
       <Sidebar />
 
-      {/* Main feed */}
-      <main className="flex-1 min-w-0">
-        <PostComposer onPost={handleNewPost} />
+      <main className="min-w-0 flex-1">
+        <PostComposer />
 
         <div className="mt-4">
-          <Tabs defaultValue="hot" onValueChange={(v) => setActiveTab(v as FeedTab)}>
-            <TabsList className="mb-4 bg-muted/50 border border-border">
+          <Tabs defaultValue="hot" onValueChange={(value) => setActiveTab(value as FeedTab)}>
+            <TabsList className="mb-4 border border-border bg-muted/50">
               <TabsTrigger value="hot" className="gap-1.5 data-active:text-[#3B82F6]">
                 <Flame className="size-3.5" /> Hot
               </TabsTrigger>
@@ -111,35 +85,33 @@ export default function Home() {
             </TabsList>
 
             <TabsContent value="hot">
-              <FeedList posts={filteredPosts} />
+              <FeedList posts={filteredPosts} isLoading={posts.length === 0} />
             </TabsContent>
             <TabsContent value="new">
-              <FeedList posts={filteredPosts} />
+              <FeedList posts={filteredPosts} isLoading={posts.length === 0} />
             </TabsContent>
             <TabsContent value="following">
-              <FeedList posts={filteredPosts} />
+              <FeedList posts={filteredPosts} isLoading={posts.length === 0} />
             </TabsContent>
             <TabsContent value="trending">
-              <FeedList posts={filteredPosts} />
+              <FeedList posts={filteredPosts} isLoading={posts.length === 0} />
             </TabsContent>
           </Tabs>
         </div>
       </main>
 
-      {/* Right sidebar */}
-      <aside className="hidden xl:block w-72 shrink-0">
+      <aside className="hidden w-72 shrink-0 xl:block">
         <div className="sticky top-20 flex flex-col gap-4">
-          {/* Trending Tags */}
           <div className="glass rounded-xl p-4">
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               🔥 Trending Tags
             </h3>
             <div className="flex flex-wrap gap-1.5">
-              {TRENDING_TAGS.map((tag) => (
-                <Link key={tag} href={`/search?tag=${tag}`}>
+              {tagStats.slice(0, 10).map(({ tag }) => (
+                <Link key={tag} href={`/search?q=${encodeURIComponent(tag)}`}>
                   <Badge
                     variant="secondary"
-                    className="cursor-pointer text-[11px] hover:bg-[#3B82F6]/10 hover:text-[#3B82F6] transition-colors"
+                    className="cursor-pointer text-[11px] transition-colors hover:bg-[#3B82F6]/10 hover:text-[#3B82F6]"
                   >
                     #{tag}
                   </Badge>
@@ -148,26 +120,28 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Upcoming Events */}
           <div className="glass rounded-xl p-4">
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               📅 Upcoming Events
             </h3>
             <div className="space-y-3">
-              {DEMO_EVENTS.slice(0, 3).map((event) => (
-                <div key={event.title} className="group">
+              {upcomingEvents.length === 0 && (
+                <p className="text-xs text-muted-foreground">No upcoming events yet.</p>
+              )}
+              {upcomingEvents.map((event) => (
+                <div key={event._id} className="group">
                   <div className="flex items-start gap-2">
-                    <div className="flex flex-col items-center justify-center rounded-md bg-[#3B82F6]/10 px-2 py-1 text-center shrink-0">
-                      <Calendar className="size-3 text-[#3B82F6] mb-0.5" />
+                    <div className="flex shrink-0 flex-col items-center justify-center rounded-md bg-[#3B82F6]/10 px-2 py-1 text-center">
+                      <Calendar className="mb-0.5 size-3 text-[#3B82F6]" />
                       <span className="text-[10px] font-medium text-[#3B82F6]">
                         {formatEventDate(event.startTime)}
                       </span>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-medium leading-tight truncate group-hover:text-[#3B82F6] transition-colors">
+                      <p className="truncate text-xs font-medium leading-tight transition-colors group-hover:text-[#3B82F6]">
                         {event.title}
                       </p>
-                      <p className="text-[10px] text-muted-foreground capitalize">{event.type}</p>
+                      <p className="text-[10px] capitalize text-muted-foreground">{event.type}</p>
                     </div>
                   </div>
                 </div>
@@ -175,20 +149,26 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Who to follow */}
           <div className="glass rounded-xl p-4">
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               👥 Who to Follow
             </h3>
             <div className="space-y-3">
-              {SUGGESTED_USERS.map((u) => (
-                <div key={u.username} className="flex items-center gap-2.5">
-                  <UserAvatar src={u.avatar} name={u.name} size="sm" />
+              {suggestedUsers.length === 0 && (
+                <p className="text-xs text-muted-foreground">More members will appear here as they join.</p>
+              )}
+              {suggestedUsers.map((user) => (
+                <div key={user._id} className="flex items-center gap-2.5">
+                  <UserAvatar src={user.avatar} name={user.name} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium truncate">{u.name}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">@{u.username}</p>
+                    <p className="truncate text-xs font-medium">{user.name}</p>
+                    <p className="truncate text-[10px] text-muted-foreground">@{user.username}</p>
                   </div>
-                  <Button variant="outline" size="xs" className="shrink-0 text-[10px] h-6 gap-1 border-border hover:bg-[#3B82F6]/10 hover:text-[#3B82F6]">
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    className="h-6 shrink-0 gap-1 border-border text-[10px] hover:bg-[#3B82F6]/10 hover:text-[#3B82F6]"
+                  >
                     <UserPlus className="size-3" />
                     Follow
                   </Button>
