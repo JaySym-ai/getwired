@@ -43,7 +43,7 @@ export function ChatPageClient() {
       {/* Chat area */}
       <div className="flex-1 min-w-0">
         {activeRoom !== null && activeRoom < DEMO_CHAT_ROOMS.length ? (
-          <ChatRoom roomIndex={activeRoom} />
+          <ChatRoom key={activeRoom} roomIndex={activeRoom} />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-4 text-center px-4">
             <div className="flex size-16 items-center justify-center rounded-2xl bg-[#3B82F6]/10 border border-[#3B82F6]/20">
@@ -61,4 +61,3 @@ export function ChatPageClient() {
     </div>
   );
 }
-

@@ -9,7 +9,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { SendHorizontal, Smile } from "lucide-react";
-import { DEMO_USERS } from "@/lib/demo-auth";
+import { DEMO_USERS } from "@/lib/demo-data";
 import { cn } from "@/lib/utils";
 
 const EMOJI_GRID = [
@@ -76,7 +76,7 @@ export function MessageInput({ onSend }: MessageInputProps) {
 
   const filteredUsers = DEMO_USERS.filter((u) =>
     u.username.toLowerCase().includes(mentionFilter) ||
-    u.displayName.toLowerCase().includes(mentionFilter)
+    u.name.toLowerCase().includes(mentionFilter)
   );
 
   return (
@@ -86,12 +86,12 @@ export function MessageInput({ onSend }: MessageInputProps) {
         <div className="absolute bottom-full left-4 right-4 mb-1 rounded-lg border border-border bg-card shadow-lg overflow-hidden">
           {filteredUsers.map((user) => (
             <button
-              key={user.id}
+              key={user.clerkId}
               onClick={() => handleMention(user.username)}
               className="flex w-full items-center gap-2 px-3 py-2 text-sm hover:bg-secondary transition-colors text-left"
             >
               <span className="font-medium text-foreground">@{user.username}</span>
-              <span className="text-muted-foreground">{user.displayName}</span>
+              <span className="text-muted-foreground">{user.name}</span>
             </button>
           ))}
         </div>
@@ -144,4 +144,3 @@ export function MessageInput({ onSend }: MessageInputProps) {
     </div>
   );
 }
-

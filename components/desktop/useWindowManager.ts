@@ -19,7 +19,7 @@ export const APP_REGISTRY: Record<string, AppRegistryEntry> = {
   chat: { id: "chat", title: "Chat", icon: "MessagesSquare", defaultSize: { width: 400, height: 500 } },
   news: { id: "news", title: "News", icon: "Newspaper", defaultSize: { width: 700, height: 550 } },
   discover: { id: "discover", title: "Discover", icon: "Compass", defaultSize: { width: 700, height: 550 } },
-  marketplace: { id: "marketplace", title: "Marketplace", icon: "ShoppingBag", defaultSize: { width: 750, height: 600 } },
+  marketplace: { id: "marketplace", title: "Amplify", icon: "Rocket", defaultSize: { width: 750, height: 600 } },
   profile: { id: "profile", title: "Profile", icon: "User", defaultSize: { width: 600, height: 500 } },
   bookmarks: { id: "bookmarks", title: "Bookmarks", icon: "Bookmark", defaultSize: { width: 500, height: 450 } },
   notifications: { id: "notifications", title: "Notifications", icon: "Bell", defaultSize: { width: 420, height: 500 } },
@@ -270,4 +270,3 @@ export function useWindowManagerProvider(): WindowManagerContextValue {
     updateWindowSize,
   };
 }
-

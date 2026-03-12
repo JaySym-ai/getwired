@@ -2,17 +2,17 @@ import type { Metadata } from "next";
 import { MarketplaceClient } from "./MarketplaceClient";
 
 export const metadata: Metadata = {
-  title: "Marketplace",
+  title: "Amplify",
   description:
     "Boost your posts, advertise your product, and unlock premium features on GetWired.dev.",
   openGraph: {
-    title: "Marketplace | GetWired.dev",
+    title: "Amplify | GetWired.dev",
     description:
       "Boost your posts, advertise your product, and unlock premium features on GetWired.dev.",
   },
   twitter: {
     card: "summary",
-    title: "Marketplace | GetWired.dev",
+    title: "Amplify | GetWired.dev",
     description: "Boost your posts, advertise your product, and unlock premium features on GetWired.dev.",
   },
 };
@@ -20,4 +20,3 @@ export const metadata: Metadata = {
 export default function MarketplacePage() {
   return <MarketplaceClient />;
 }
-

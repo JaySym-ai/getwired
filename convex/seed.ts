@@ -18,6 +18,14 @@ import {
 } from "../lib/demo-data";
 import { Id } from "./_generated/dataModel";
 
+function requireIndexedValue<T>(values: T[], index: number, label: string): T {
+  const value = values[index];
+  if (value === undefined) {
+    throw new Error(`Missing ${label} at index ${index}`);
+  }
+  return value;
+}
+
 export const seedAll = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -50,7 +58,7 @@ export const seedAll = internalMutation({
       const { authorIndex, ...postData } = post;
       const id = await ctx.db.insert("posts", {
         ...postData,
-        authorId: userIds[authorIndex],
+        authorId: requireIndexedValue(userIds, authorIndex, "userId"),
       });
       postIds.push(id);
     }
@@ -63,8 +71,8 @@ export const seedAll = internalMutation({
         comment;
       const data: Record<string, unknown> = {
         ...commentData,
-        postId: postIds[postIndex],
-        authorId: userIds[authorIndex],
+        postId: requireIndexedValue(postIds, postIndex, "postId"),
+        authorId: requireIndexedValue(userIds, authorIndex, "userId"),
         isDemo: true,
       };
       if (isReply && parentIndex !== undefined && commentIds[parentIndex]) {
@@ -82,7 +90,7 @@ export const seedAll = internalMutation({
       const id = await ctx.db.insert("chatRooms", {
         ...roomData,
         members: userIds,
-        createdBy: userIds[creatorIndex],
+        createdBy: requireIndexedValue(userIds, creatorIndex, "userId"),
       });
       roomIds.push(id);
     }
@@ -93,11 +101,11 @@ export const seedAll = internalMutation({
       const { roomIndex, authorIndex, reactions, ...msgData } = msg;
       await ctx.db.insert("chatMessages", {
         ...msgData,
-        roomId: roomIds[roomIndex],
-        authorId: userIds[authorIndex],
+        roomId: requireIndexedValue(roomIds, roomIndex, "roomId"),
+        authorId: requireIndexedValue(userIds, authorIndex, "userId"),
         reactions: reactions.map((r) => ({
           emoji: r.emoji,
-          userId: userIds[r.userIndex],
+          userId: requireIndexedValue(userIds, r.userIndex, "userId"),
         })),
         isDemo: true,
       });
@@ -105,18 +113,23 @@ export const seedAll = internalMutation({
     console.log(`✅ Seeded ${DEMO_CHAT_MESSAGES.length} chat messages`);
 
     // 7. Seed news articles
+    const newsArticleIds: Id<"newsArticles">[] = [];
     for (const article of DEMO_NEWS_ARTICLES) {
-      await ctx.db.insert("newsArticles", article);
+      const id = await ctx.db.insert("newsArticles", article);
+      newsArticleIds.push(id);
     }
-    console.log(`✅ Seeded ${DEMO_NEWS_ARTICLES.length} news articles`);
+    console.log(`✅ Seeded ${newsArticleIds.length} news articles`);
 
     // 8. Seed notifications
     for (const notif of DEMO_NOTIFICATIONS) {
       const { userIndex, fromUserIndex, ...notifData } = notif;
       await ctx.db.insert("notifications", {
         ...notifData,
-        userId: userIds[userIndex],
-        fromUserId: fromUserIndex !== undefined ? userIds[fromUserIndex] : undefined,
+        userId: requireIndexedValue(userIds, userIndex, "userId"),
+        fromUserId:
+          fromUserIndex !== undefined
+            ? requireIndexedValue(userIds, fromUserIndex, "userId")
+            : undefined,
         isDemo: true,
       });
     }
@@ -127,7 +140,7 @@ export const seedAll = internalMutation({
       const { postIndex, ...pollData } = poll;
       await ctx.db.insert("polls", {
         ...pollData,
-        postId: postIds[postIndex],
+        postId: requireIndexedValue(postIds, postIndex, "postId"),
         voters: userIds,
       });
     }
@@ -138,7 +151,7 @@ export const seedAll = internalMutation({
       const { hostIndex, ...eventData } = event;
       await ctx.db.insert("events", {
         ...eventData,
-        hostId: userIds[hostIndex],
+        hostId: requireIndexedValue(userIds, hostIndex, "userId"),
         attendees: userIds.slice(0, 3),
       });
     }
@@ -149,7 +162,7 @@ export const seedAll = internalMutation({
       const { userIndex, ...promoData } = promo;
       await ctx.db.insert("promotions", {
         ...promoData,
-        userId: userIds[userIndex],
+        userId: requireIndexedValue(userIds, userIndex, "userId"),
       });
     }
     console.log(`✅ Seeded ${DEMO_PROMOTIONS.length} promotions`);
@@ -159,14 +172,14 @@ export const seedAll = internalMutation({
       const { userIndex, postIndex, newsIndex, ...bookmarkData } = bookmark;
       let targetId: string;
       if (bookmarkData.targetType === "post" && postIndex !== undefined) {
-        targetId = postIds[postIndex] as string;
+        targetId = requireIndexedValue(postIds, postIndex, "postId") as string;
       } else if (bookmarkData.targetType === "news" && newsIndex !== undefined) {
-        targetId = `news-${newsIndex}`;
+        targetId = requireIndexedValue(newsArticleIds, newsIndex, "newsArticleId") as string;
       } else {
         targetId = "unknown";
       }
       await ctx.db.insert("bookmarks", {
-        userId: userIds[userIndex],
+        userId: requireIndexedValue(userIds, userIndex, "userId"),
         targetId,
         targetType: bookmarkData.targetType,
         createdAt: bookmarkData.createdAt,
@@ -179,7 +192,7 @@ export const seedAll = internalMutation({
       const { followerIndex, targetUserIndex, targetTag, targetCategory, ...followData } = follow;
       let targetId: string;
       if (followData.targetType === "user" && targetUserIndex !== undefined) {
-        targetId = userIds[targetUserIndex] as string;
+        targetId = requireIndexedValue(userIds, targetUserIndex, "userId") as string;
       } else if (followData.targetType === "tag" && targetTag) {
         targetId = targetTag;
       } else if (followData.targetType === "category" && targetCategory) {
@@ -188,7 +201,7 @@ export const seedAll = internalMutation({
         targetId = "unknown";
       }
       await ctx.db.insert("follows", {
-        followerId: userIds[followerIndex],
+        followerId: requireIndexedValue(userIds, followerIndex, "userId"),
         targetId,
         targetType: followData.targetType,
         createdAt: followData.createdAt,
@@ -202,7 +215,7 @@ export const seedAll = internalMutation({
       await ctx.db.insert("moderationLogs", {
         ...logData,
         contentId: `demo-content-${Math.random().toString(36).slice(2)}`,
-        authorId: userIds[authorIndex],
+        authorId: requireIndexedValue(userIds, authorIndex, "userId"),
       });
     }
     console.log(`✅ Seeded ${DEMO_MODERATION_LOGS.length} moderation logs`);
@@ -212,7 +225,10 @@ export const seedAll = internalMutation({
       const { userIndex, ...subData } = sub;
       await ctx.db.insert("newsletterSubscribers", {
         ...subData,
-        userId: userIndex !== undefined ? userIds[userIndex] : undefined,
+        userId:
+          userIndex !== undefined
+            ? requireIndexedValue(userIds, userIndex, "userId")
+            : undefined,
       });
     }
     console.log(`✅ Seeded ${DEMO_NEWSLETTER_SUBSCRIBERS.length} newsletter subscribers`);
@@ -221,4 +237,3 @@ export const seedAll = internalMutation({
     return { status: "seeded", userCount: userIds.length, postCount: postIds.length };
   },
 });
-

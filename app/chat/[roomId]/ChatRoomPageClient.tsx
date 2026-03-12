@@ -50,7 +50,7 @@ export function ChatRoomPageClient({ roomIndex }: ChatRoomPageClientProps) {
       {/* Chat area */}
       <div className="flex-1 min-w-0">
         {validIndex ? (
-          <ChatRoom roomIndex={roomIndex} />
+          <ChatRoom key={roomIndex} roomIndex={roomIndex} />
         ) : (
           <div className="flex h-full items-center justify-center">
             <p className="text-muted-foreground">Room not found</p>
@@ -60,4 +60,3 @@ export function ChatRoomPageClient({ roomIndex }: ChatRoomPageClientProps) {
     </div>
   );
 }
-

@@ -1,20 +1,13 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useMemo, useState } from "react";
 import { CheckCheck, Bell } from "lucide-react";
+import { useMutation, useQuery } from "convex/react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { NotificationItem, type NotificationType } from "@/components/shared/NotificationItem";
-import { DEMO_NOTIFICATIONS } from "@/lib/demo-data";
-import { useDemoAuth } from "@/lib/demo-auth";
-
-const USER_ID_TO_INDEX: Record<string, number> = {
-  user_001: 0,
-  user_002: 1,
-  user_003: 2,
-  user_004: 3,
-  user_005: 5,
-};
+import { useAppAuth } from "@/lib/auth";
+import { api } from "../../convex/_generated/api";
 
 const FILTER_TABS: { value: string; label: string }[] = [
   { value: "all", label: "All" },
@@ -25,52 +18,30 @@ const FILTER_TABS: { value: string; label: string }[] = [
   { value: "news", label: "News" },
 ];
 
-interface NotificationState {
-  type: NotificationType;
-  message: string;
-  link: string;
-  isRead: boolean;
-  createdAt: number;
-}
-
 export function NotificationsClient() {
-  const { user } = useDemoAuth();
-  const userIndex = user ? (USER_ID_TO_INDEX[user.id] ?? 0) : 0;
-
-  const [notifications, setNotifications] = useState<NotificationState[]>(() =>
-    DEMO_NOTIFICATIONS
-      .filter((n) => n.userIndex === userIndex)
-      .map((n) => ({
-        type: n.type as NotificationType,
-        message: n.message,
-        link: n.link,
-        isRead: n.isRead,
-        createdAt: n.createdAt,
-      }))
+  const { user } = useAppAuth();
+  const notificationsQuery = useQuery(
+    api.notifications.getByUser,
+    user?.convexUserId ? { userId: user.convexUserId, limit: 100 } : "skip",
   );
-
+  const notifications = useMemo(() => notificationsQuery ?? [], [notificationsQuery]);
+  const markAllRead = useMutation(api.notifications.markAllRead);
+  const markRead = useMutation(api.notifications.markRead);
   const [activeTab, setActiveTab] = useState("all");
 
   const filtered = useMemo(() => {
-    if (activeTab === "all") return notifications;
-    return notifications.filter((n) => n.type === activeTab);
-  }, [notifications, activeTab]);
+    if (activeTab === "all") {
+      return notifications;
+    }
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+    return notifications.filter((notification) => notification.type === activeTab);
+  }, [activeTab, notifications]);
 
-  const markAllRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-  }, []);
-
-  const markRead = useCallback((index: number) => {
-    setNotifications((prev) =>
-      prev.map((n, i) => (i === index ? { ...n, isRead: true } : n))
-    );
-  }, []);
+  const unreadCount = notifications.filter((notification) => !notification.isRead).length;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Bell className="size-6 text-[#3B82F6]" />
           <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
@@ -84,7 +55,7 @@ export function NotificationsClient() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={markAllRead}
+            onClick={() => void markAllRead({})}
             className="gap-1.5 text-[#3B82F6] hover:text-[#3B82F6]/80"
           >
             <CheckCheck className="size-4" />
@@ -94,7 +65,7 @@ export function NotificationsClient() {
       </div>
 
       <Tabs defaultValue="all" onValueChange={setActiveTab}>
-        <TabsList className="mb-4 bg-muted/50 border border-border flex-wrap">
+        <TabsList className="mb-4 flex-wrap border border-border bg-muted/50">
           {FILTER_TABS.map((tab) => (
             <TabsTrigger
               key={tab.value}
@@ -110,20 +81,20 @@ export function NotificationsClient() {
           <TabsContent key={tab.value} value={tab.value}>
             {filtered.length === 0 ? (
               <div className="rounded-lg border border-border bg-muted/30 px-4 py-12 text-center">
-                <Bell className="mx-auto size-10 text-muted-foreground/40 mb-3" />
+                <Bell className="mx-auto mb-3 size-10 text-muted-foreground/40" />
                 <p className="text-sm text-muted-foreground">No notifications</p>
               </div>
             ) : (
               <div className="space-y-1 rounded-lg border border-border bg-muted/30 p-2">
-                {filtered.map((n, i) => (
+                {filtered.map((notification) => (
                   <NotificationItem
-                    key={`${n.type}-${n.createdAt}`}
-                    type={n.type}
-                    message={n.message}
-                    link={n.link}
-                    isRead={n.isRead}
-                    createdAt={n.createdAt}
-                    onClick={() => markRead(i)}
+                    key={notification._id}
+                    type={notification.type as NotificationType}
+                    message={notification.message}
+                    link={notification.link}
+                    isRead={notification.isRead}
+                    createdAt={notification.createdAt}
+                    onClick={() => void markRead({ notificationId: notification._id })}
                   />
                 ))}
               </div>
@@ -134,4 +105,3 @@ export function NotificationsClient() {
     </main>
   );
 }
-

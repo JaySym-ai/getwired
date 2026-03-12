@@ -5,7 +5,7 @@ import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { UserAvatar } from "@/components/shared/Avatar";
-import { useDemoAuth } from "@/lib/demo-auth";
+import { useAppAuth } from "@/lib/auth";
 
 interface CommentComposerProps {
   placeholder?: string;
@@ -20,7 +20,7 @@ export function CommentComposer({
   onCancel,
   compact = false,
 }: CommentComposerProps) {
-  const { user } = useDemoAuth();
+  const { user } = useAppAuth();
   const [content, setContent] = useState("");
 
   const handleSubmit = () => {
@@ -69,4 +69,3 @@ export function CommentComposer({
     </div>
   );
 }
-

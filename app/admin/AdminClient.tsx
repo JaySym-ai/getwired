@@ -13,7 +13,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { UserAvatar } from "@/components/shared/Avatar";
-import { useDemoAuth } from "@/lib/demo-auth";
+import { useAppAuth } from "@/lib/auth";
 import { DEMO_MODERATION_LOGS, DEMO_USERS as DATA_USERS, DEMO_POSTS } from "@/lib/demo-data";
 import { RANKS } from "@/lib/constants";
 import { toast } from "sonner";
@@ -23,7 +23,7 @@ function fmtDate(ts: number) {
 }
 
 export function AdminClient() {
-  const { user } = useDemoAuth();
+  const { user } = useAppAuth();
   const isAdmin = user?.rank === "moderator" || user?.rank === "top";
 
   if (!isAdmin) {

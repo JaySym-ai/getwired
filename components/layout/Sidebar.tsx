@@ -80,7 +80,7 @@ export function Sidebar() {
             {[
               { label: "About", href: "/about" },
               { label: "Newsletter", href: "/newsletter" },
-              { label: "Marketplace", href: "/marketplace" },
+              { label: "Amplify", href: "/marketplace" },
             ].map((link) => (
               <Link
                 key={link.href}
@@ -96,4 +96,3 @@ export function Sidebar() {
     </aside>
   );
 }
-

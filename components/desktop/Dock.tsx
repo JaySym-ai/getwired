@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   Rss, MessageSquare, MessagesSquare, Newspaper, Compass,
-  ShoppingBag, User, Bookmark, Bell, Search, Shield, Mail,
+  Rocket, User, Bookmark, Bell, Search, Shield, Mail,
   ChevronLeft, ChevronRight,
   type LucideIcon,
 } from "lucide-react";
@@ -12,7 +12,7 @@ import { useWindowManager, APP_REGISTRY } from "./useWindowManager";
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Rss, MessageSquare, MessagesSquare, Newspaper, Compass,
-  ShoppingBag, User, Bookmark, Bell, Search, Shield, Mail,
+  Rocket, User, Bookmark, Bell, Search, Shield, Mail,
 };
 
 // Which apps to show in the sidebar (and in what order)

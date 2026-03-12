@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DEMO_USERS } from "@/lib/demo-auth";
+import { DEMO_USERS } from "@/lib/demo-data";
 
 const TYPING_USERS = [DEMO_USERS[1]!, DEMO_USERS[2]!, DEMO_USERS[3]!];
 
@@ -13,7 +13,7 @@ export function TypingIndicator() {
 
     const showTyping = () => {
       const user = TYPING_USERS[Math.floor(Math.random() * TYPING_USERS.length)]!;
-      setTypingUser(user.displayName);
+      setTypingUser(user.name);
 
       timeout = setTimeout(() => {
         setTypingUser(null);
@@ -40,4 +40,3 @@ export function TypingIndicator() {
     </div>
   );
 }
-

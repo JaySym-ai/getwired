@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Settings, Users, FileText } from "lucide-react";
-import { DEMO_USERS, useDemoAuth } from "@/lib/demo-auth";
-import { DEMO_CHAT_ROOMS, DEMO_CHAT_MESSAGES } from "@/lib/demo-data";
+import { useAppAuth } from "@/lib/auth";
+import { DEMO_CHAT_ROOMS, DEMO_CHAT_MESSAGES, DEMO_USERS } from "@/lib/demo-data";
 import { MessageBubble, type ChatMessageData, type ChatReaction } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
 import { TypingIndicator } from "./TypingIndicator";
@@ -15,11 +15,26 @@ interface ChatRoomProps {
   roomIndex: number;
 }
 
+function toChatAuthor(user: {
+  clerkId: string;
+  name: string;
+  avatar?: string;
+  rank: "newbie" | "active" | "contributor" | "expert" | "top" | "moderator";
+}) {
+  return {
+    id: user.clerkId,
+    avatarUrl: user.avatar,
+    displayName: user.name,
+    rank: user.rank,
+  };
+}
+
 function buildMessages(roomIndex: number, currentUserId: string): ChatMessageData[] {
   return DEMO_CHAT_MESSAGES
     .filter((m) => m.roomIndex === roomIndex)
     .map((m, i) => {
-      const author = DEMO_USERS[m.authorIndex % DEMO_USERS.length]!;
+      const demoAuthor = DEMO_USERS[m.authorIndex % DEMO_USERS.length]!;
+      const author = toChatAuthor(demoAuthor);
       const reactionMap = new Map<string, { count: number; reacted: boolean }>();
       for (const r of m.reactions) {
         const existing = reactionMap.get(r.emoji);
@@ -45,9 +60,9 @@ function buildMessages(roomIndex: number, currentUserId: string): ChatMessageDat
 }
 
 export function ChatRoom({ roomIndex }: ChatRoomProps) {
-  const { user } = useDemoAuth();
+  const { user } = useAppAuth();
   const room = DEMO_CHAT_ROOMS[roomIndex];
-  const currentUserId = user?.id ?? "user_001";
+  const currentUserId = user?.clerkId ?? "guest";
 
   const [messages, setMessages] = useState<ChatMessageData[]>(() =>
     buildMessages(roomIndex, currentUserId)
@@ -55,12 +70,6 @@ export function ChatRoom({ roomIndex }: ChatRoomProps) {
   const [threadMessageId, setThreadMessageId] = useState<string | null>(null);
   const [threadReplies, setThreadReplies] = useState<ChatMessageData[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
-
-  // Reset messages when room changes
-  useEffect(() => {
-    setMessages(buildMessages(roomIndex, currentUserId));
-    setThreadMessageId(null);
-  }, [roomIndex, currentUserId]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -72,7 +81,12 @@ export function ChatRoom({ roomIndex }: ChatRoomProps) {
       if (!user) return;
       const newMsg: ChatMessageData = {
         id: `msg-${roomIndex}-${Date.now()}`,
-        author: user,
+        author: {
+          id: user.clerkId,
+          avatarUrl: user.avatarUrl,
+          displayName: user.displayName,
+          rank: user.rank,
+        },
         content,
         reactions: [],
         threadCount: 0,
@@ -114,7 +128,7 @@ export function ChatRoom({ roomIndex }: ChatRoomProps) {
         const demoReplies: ChatMessageData[] = [
           {
             id: `thread-${messageId}-1`,
-            author: DEMO_USERS[1]!,
+            author: toChatAuthor(DEMO_USERS[1]!),
             content: "Great point! I've been thinking about this too.",
             reactions: [],
             threadCount: 0,
@@ -123,7 +137,7 @@ export function ChatRoom({ roomIndex }: ChatRoomProps) {
           },
           {
             id: `thread-${messageId}-2`,
-            author: DEMO_USERS[3]!,
+            author: toChatAuthor(DEMO_USERS[3]!),
             content: "Agreed. We should discuss this more in the next meetup.",
             reactions: [],
             threadCount: 0,
@@ -144,7 +158,12 @@ export function ChatRoom({ roomIndex }: ChatRoomProps) {
       if (!user) return;
       const reply: ChatMessageData = {
         id: `thread-reply-${Date.now()}`,
-        author: user,
+        author: {
+          id: user.clerkId,
+          avatarUrl: user.avatarUrl,
+          displayName: user.displayName,
+          rank: user.rank,
+        },
         content,
         reactions: [],
         threadCount: 0,

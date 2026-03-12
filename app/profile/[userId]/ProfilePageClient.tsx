@@ -6,7 +6,7 @@ import { TechStack } from "@/components/profile/TechStack";
 import { TechCV } from "@/components/profile/TechCV";
 import { ActivityFeed } from "@/components/profile/ActivityFeed";
 
-import { useDemoAuth } from "@/lib/demo-auth";
+import { useAppAuth } from "@/lib/auth";
 import type { UserRank } from "@/lib/types";
 import type { Experience, Project, Education, Certification } from "@/lib/types";
 
@@ -55,7 +55,7 @@ interface ProfilePageClientProps {
 }
 
 export function ProfilePageClient({ user, posts, comments }: ProfilePageClientProps) {
-  const { user: currentUser } = useDemoAuth();
+  const { user: currentUser } = useAppAuth();
   const isOwnProfile = currentUser?.username === user.username;
 
   return (
@@ -115,4 +115,3 @@ export function ProfilePageClient({ user, posts, comments }: ProfilePageClientPr
     </main>
   );
 }
-

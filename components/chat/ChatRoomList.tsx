@@ -22,7 +22,6 @@ import {
   Coffee,
 } from "lucide-react";
 import { DEMO_CHAT_ROOMS, DEMO_CHAT_MESSAGES, DEMO_USERS } from "@/lib/demo-data";
-import { DEMO_USERS as AUTH_USERS } from "@/lib/demo-auth";
 
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
   "ai-ml": Brain,
@@ -71,11 +70,11 @@ export function ChatRoomList({ activeRoomIndex, onSelectRoom }: ChatRoomListProp
   // DM rooms from auth users
   const dmRooms = useMemo(
     () =>
-      AUTH_USERS.slice(1, 4).map((u, i) => ({
-        name: u.displayName,
+      DEMO_USERS.slice(1, 4).map((u, i) => ({
+        name: u.name,
         index: DEMO_CHAT_ROOMS.length + i,
         username: u.username,
-        avatarUrl: u.avatarUrl,
+        avatarUrl: u.avatar,
       })),
     []
   );

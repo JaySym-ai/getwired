@@ -13,7 +13,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { UserAvatar } from "@/components/shared/Avatar";
-import { useDemoAuth } from "@/lib/demo-auth";
+import { useAppAuth } from "@/lib/auth";
 import { DEMO_CATEGORIES } from "@/lib/demo-data";
 import { toast } from "sonner";
 
@@ -27,7 +27,7 @@ interface PostComposerProps {
 }
 
 export function PostComposer({ onPost }: PostComposerProps) {
-  const { user, isSignedIn } = useDemoAuth();
+  const { user, isSignedIn } = useAppAuth();
   const [expanded, setExpanded] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -135,4 +135,3 @@ export function PostComposer({ onPost }: PostComposerProps) {
     </div>
   );
 }
-

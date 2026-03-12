@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import {
   Rss, MessageSquare, MessagesSquare, Newspaper, Compass,
-  ShoppingBag, User, Bookmark, Bell, Search, Shield, Mail,
+  Rocket, User, Bookmark, Bell, Search, Shield, Mail,
   X, Minus, Maximize2, RotateCw,
   type LucideIcon,
 } from "lucide-react";
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Rss, MessageSquare, MessagesSquare, Newspaper, Compass,
-  ShoppingBag, User, Bookmark, Bell, Search, Shield, Mail,
+  Rocket, User, Bookmark, Bell, Search, Shield, Mail,
 };
 
 interface WindowTitleBarProps {
@@ -127,4 +127,3 @@ export function WindowTitleBar({
     </div>
   );
 }
-

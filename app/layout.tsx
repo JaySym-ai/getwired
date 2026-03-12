@@ -1,10 +1,7 @@
 import type { Metadata, Viewport } from "next";
 
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster } from "@/components/ui/sonner";
-import { DemoAuthProvider } from "@/lib/demo-auth";
-import { WindowManagerProvider } from "@/components/desktop/WindowManager";
-import { Desktop } from "@/components/desktop/Desktop";
+import { RootShell } from "@/components/layout/RootShell";
+import { AppProviders } from "@/components/providers/AppProviders";
 import "./globals.css";
 
 
@@ -51,14 +48,9 @@ export default function RootLayout({
       <body
         className="antialiased min-h-screen bg-background text-foreground overflow-hidden"
       >
-        <DemoAuthProvider>
-          <TooltipProvider>
-            <WindowManagerProvider>
-              <Desktop />
-            </WindowManagerProvider>
-            <Toaster />
-          </TooltipProvider>
-        </DemoAuthProvider>
+        <AppProviders>
+          <RootShell>{children}</RootShell>
+        </AppProviders>
       </body>
     </html>
   );

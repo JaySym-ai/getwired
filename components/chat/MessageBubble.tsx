@@ -10,7 +10,13 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { SmilePlus, MessageSquare, MoreHorizontal } from "lucide-react";
-import type { DemoUser } from "@/lib/demo-auth";
+
+interface ChatUser {
+  id?: string;
+  avatarUrl?: string;
+  displayName: string;
+  rank: "newbie" | "active" | "contributor" | "expert" | "top" | "moderator";
+}
 
 const QUICK_EMOJIS = ["👍", "❤️", "🔥", "🚀", "😂", "🎉", "💯", "👀", "🧠", "⚡"];
 
@@ -22,7 +28,7 @@ export interface ChatReaction {
 
 export interface ChatMessageData {
   id: string;
-  author: DemoUser;
+  author: ChatUser;
   content: string;
   reactions: ChatReaction[];
   threadCount: number;
@@ -128,4 +134,3 @@ export function MessageBubble({ message, onReact, onOpenThread }: MessageBubbleP
     </div>
   );
 }
-

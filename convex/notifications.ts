@@ -1,5 +1,24 @@
 import { v } from "convex/values";
-import { query } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
+
+async function requireCurrentUser(ctx: QueryCtx | MutationCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new Error("Unauthenticated");
+  }
+
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+    .first();
+
+  if (!user) {
+    throw new Error("Current user not found");
+  }
+
+  return user;
+}
 
 export const getByUser = query({
   args: { userId: v.id("users"), limit: v.optional(v.number()) },
@@ -24,3 +43,35 @@ export const getUnreadCount = query({
   },
 });
 
+export const markRead = mutation({
+  args: { notificationId: v.id("notifications") },
+  handler: async (ctx, args) => {
+    const currentUser = await requireCurrentUser(ctx);
+    const notification = await ctx.db.get("notifications", args.notificationId);
+
+    if (!notification || notification.userId !== currentUser._id) {
+      throw new Error("Notification not found");
+    }
+
+    await ctx.db.patch("notifications", args.notificationId, { isRead: true });
+  },
+});
+
+export const markAllRead = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const currentUser = await requireCurrentUser(ctx);
+    const notifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_user", (q) => q.eq("userId", currentUser._id))
+      .collect();
+
+    await Promise.all(
+      notifications
+        .filter((notification) => !notification.isRead)
+        .map((notification) =>
+          ctx.db.patch("notifications", notification._id, { isRead: true }),
+        ),
+    );
+  },
+});

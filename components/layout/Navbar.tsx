@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import {
   Home,
   MessageSquare,
@@ -9,13 +8,11 @@ import {
   MessagesSquare,
   Compass,
   Search,
-  Bell,
   Menu,
   LogOut,
   User,
   Bookmark,
   Settings,
-  Users,
 } from "lucide-react";
 import { NotificationBell } from "@/components/shared/NotificationBell";
 import { Button } from "@/components/ui/button";
@@ -34,16 +31,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { UserAvatar } from "@/components/shared/Avatar";
-import { RankBadge } from "@/components/shared/Badge";
-import { useDemoAuth, DEMO_USERS } from "@/lib/demo-auth";
-import { cn } from "@/lib/utils";
+import { useAppAuth } from "@/lib/auth";
+import { APP_ENV } from "@/lib/env";
 
 const NAV_LINKS = [
   { href: "/", label: "Home", icon: Home },
@@ -54,88 +44,67 @@ const NAV_LINKS = [
 ];
 
 export function Navbar() {
-  const { user, isSignedIn, signIn, signOut, switchUser } = useDemoAuth();
-  const [switchDialogOpen, setSwitchDialogOpen] = useState(false);
+  const { user, isSignedIn, signIn, signOut } = useAppAuth();
 
   return (
-    <>
-      <nav className="fixed top-0 left-0 right-0 z-50 h-14 border-b border-border bg-background/50 backdrop-blur-xl">
-        <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-4">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-1 text-lg font-bold tracking-tight">
-            <span className="text-foreground">GetWired</span>
-            <span className="text-[#3B82F6] text-glow">.dev</span>
-          </Link>
+    <nav className="fixed top-0 left-0 right-0 z-50 h-14 border-b border-border bg-background/50 backdrop-blur-xl">
+      <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-4">
+        <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight">
+          <span className="text-foreground">GetWired</span>
+          <span className="text-[#3B82F6] text-glow">.dev</span>
+          <span className="rounded-full border border-[#3B82F6]/30 bg-[#3B82F6]/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#3B82F6]">
+            {APP_ENV}
+          </span>
+        </Link>
 
-          {/* Desktop Nav Links */}
-          <div className="hidden items-center gap-1 md:flex">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <link.icon className="size-4" />
-                {link.label}
-              </Link>
-            ))}
-          </div>
-
-          {/* Right side */}
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" render={<Link href="/search" />}>
-              <Search className="size-4" />
-            </Button>
-
-            <NotificationBell />
-
-            {isSignedIn && user ? (
-              <UserMenu
-                user={user}
-                onSignOut={signOut}
-                onSwitchUser={() => setSwitchDialogOpen(true)}
-              />
-            ) : (
-              <Button size="sm" onClick={() => signIn()} className="bg-[#3B82F6] text-white hover:bg-[#3B82F6]/80">
-                Sign In
-              </Button>
-            )}
-
-            {/* Mobile hamburger */}
-            <MobileMenu />
-          </div>
+        <div className="hidden items-center gap-1 md:flex">
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <link.icon className="size-4" />
+              {link.label}
+            </Link>
+          ))}
         </div>
-      </nav>
 
-      {/* Switch User Dialog */}
-      <SwitchUserDialog
-        open={switchDialogOpen}
-        onOpenChange={setSwitchDialogOpen}
-        currentUserId={user?.id}
-        onSelect={(id) => {
-          switchUser(id);
-          setSwitchDialogOpen(false);
-        }}
-      />
-    </>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" render={<Link href="/search" />}>
+            <Search className="size-4" />
+          </Button>
+
+          <NotificationBell />
+
+          {isSignedIn && user ? (
+            <UserMenu user={user} onSignOut={signOut} />
+          ) : (
+            <Button size="sm" onClick={signIn} className="bg-[#3B82F6] text-white hover:bg-[#3B82F6]/80">
+              Sign In
+            </Button>
+          )}
+
+          <MobileMenu />
+        </div>
+      </div>
+    </nav>
   );
 }
 
 function UserMenu({
   user,
   onSignOut,
-  onSwitchUser,
 }: {
-  user: { displayName: string; username: string; avatarUrl: string; rank: string };
-  onSignOut: () => void;
-  onSwitchUser: () => void;
+  user: { displayName: string; username: string; avatarUrl: string };
+  onSignOut: () => Promise<void>;
 }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="hidden cursor-pointer rounded-full outline-none md:block">
         <UserAvatar src={user.avatarUrl} name={user.displayName} size="md" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8} className="w-56 bg-card border border-border">
+      <DropdownMenuContent align="end" sideOffset={8} className="w-56 border border-border bg-card">
         <DropdownMenuLabel className="flex items-center gap-2 px-2 py-2">
           <UserAvatar src={user.avatarUrl} name={user.displayName} size="md" />
           <div className="flex flex-col">
@@ -144,9 +113,11 @@ function UserMenu({
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="gap-2 cursor-pointer">
-          <User className="size-4" /> View Profile
-        </DropdownMenuItem>
+        <Link href={`/profile/${user.username}`}>
+          <DropdownMenuItem className="gap-2 cursor-pointer">
+            <User className="size-4" /> View Profile
+          </DropdownMenuItem>
+        </Link>
         <Link href="/bookmarks">
           <DropdownMenuItem className="gap-2 cursor-pointer">
             <Bookmark className="size-4" /> Bookmarks
@@ -156,10 +127,7 @@ function UserMenu({
           <Settings className="size-4" /> Settings
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="gap-2 cursor-pointer" onClick={onSwitchUser}>
-          <Users className="size-4" /> Switch User
-        </DropdownMenuItem>
-        <DropdownMenuItem className="gap-2 cursor-pointer text-red-400" onClick={onSignOut}>
+        <DropdownMenuItem className="gap-2 cursor-pointer text-red-400" onClick={() => void onSignOut()}>
           <LogOut className="size-4" /> Sign Out
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -198,45 +166,3 @@ function MobileMenu() {
     </Sheet>
   );
 }
-
-function SwitchUserDialog({
-  open,
-  onOpenChange,
-  currentUserId,
-  onSelect,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  currentUserId?: string;
-  onSelect: (userId: string) => void;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="border border-border bg-card">
-        <DialogHeader>
-          <DialogTitle className="text-foreground">Switch Demo User</DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col gap-2 pt-2">
-          {DEMO_USERS.map((u) => (
-            <button
-              key={u.id}
-              onClick={() => onSelect(u.id)}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent",
-                currentUserId === u.id && "bg-[#3B82F6]/10 border border-[#3B82F6]/30"
-              )}
-            >
-              <UserAvatar src={u.avatarUrl} name={u.displayName} size="md" />
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-foreground">{u.displayName}</span>
-                <span className="text-xs text-muted-foreground">@{u.username}</span>
-              </div>
-              <RankBadge rank={u.rank} className="ml-auto" />
-            </button>
-          ))}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
