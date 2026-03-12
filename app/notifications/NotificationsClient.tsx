@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCheck, Bell } from "lucide-react";
+import { CheckCheck, Bell, LogIn } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -19,7 +19,7 @@ const FILTER_TABS: { value: string; label: string }[] = [
 ];
 
 export function NotificationsClient() {
-  const { user } = useAppAuth();
+  const { user, isSignedIn, signIn } = useAppAuth();
   const notificationsQuery = useQuery(
     api.notifications.getByUser,
     user?.convexUserId ? { userId: user.convexUserId, limit: 100 } : "skip",
@@ -38,6 +38,26 @@ export function NotificationsClient() {
   }, [activeTab, notifications]);
 
   const unreadCount = notifications.filter((notification) => !notification.isRead).length;
+
+  if (!isSignedIn) {
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-6">
+        <div className="mb-6 flex items-center gap-3">
+          <Bell className="size-6 text-[#3B82F6]" />
+          <h1 className="text-2xl font-bold text-foreground">Notifications</h1>
+        </div>
+        <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-8">
+          <LogIn className="size-5 shrink-0 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            <button onClick={signIn} className="font-medium text-[#3B82F6] hover:underline cursor-pointer">
+              Sign in
+            </button>{" "}
+            to view your notifications.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">

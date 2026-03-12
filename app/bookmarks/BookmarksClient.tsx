@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Bookmark, X, Heart, MessageSquare, Eye, Newspaper } from "lucide-react";
+import { Bookmark, X, Heart, MessageSquare, Eye, Newspaper, LogIn } from "lucide-react";
 import { useMutation, useQuery } from "convex/react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useAppAuth } from "@/lib/auth";
+import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 
 interface BookmarkItem {
@@ -20,12 +21,43 @@ interface BookmarkItem {
 }
 
 export function BookmarksClient() {
-  const { user } = useAppAuth();
+  const { user, isSignedIn, signIn } = useAppAuth();
   const bookmarks = (useQuery(
     api.bookmarks.getDetailedForCurrentUser,
     user ? { limit: 100 } : "skip",
   ) ?? []) as BookmarkItem[];
-  const removeBookmark = useMutation(api.bookmarks.removeForCurrentUser);
+  const removeBookmarkMutation = useMutation(api.bookmarks.removeForCurrentUser);
+
+  const removeBookmark = (args: { bookmarkId: never }) => {
+    if (!isSignedIn) {
+      toast.error("Sign in required", {
+        description: "You need to sign in to manage bookmarks.",
+        action: { label: "Sign In", onClick: signIn },
+      });
+      return;
+    }
+    void removeBookmarkMutation(args);
+  };
+
+  if (!isSignedIn) {
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-6">
+        <div className="mb-6 flex items-center gap-3">
+          <Bookmark className="size-6 text-[#3B82F6]" />
+          <h1 className="text-2xl font-bold text-foreground">Bookmarks</h1>
+        </div>
+        <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-8">
+          <LogIn className="size-5 shrink-0 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            <button onClick={signIn} className="font-medium text-[#3B82F6] hover:underline cursor-pointer">
+              Sign in
+            </button>{" "}
+            to view your bookmarks.
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   const posts = bookmarks.filter((bookmark) => bookmark.targetType === "post");
   const news = bookmarks.filter((bookmark) => bookmark.targetType === "news");

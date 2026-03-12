@@ -8,8 +8,9 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
-import { SendHorizontal, Smile } from "lucide-react";
+import { LogIn, SendHorizontal, Smile } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAppAuth } from "@/lib/auth";
 
 const EMOJI_GRID = [
   "😀", "😂", "🤣", "😍", "🤩", "😎", "🤔", "🙄",
@@ -27,6 +28,7 @@ interface MessageInputProps {
 }
 
 export function MessageInput({ onSend, mentionOptions = [] }: MessageInputProps) {
+  const { isSignedIn, signIn } = useAppAuth();
   const [value, setValue] = useState("");
   const [showMentions, setShowMentions] = useState(false);
   const [mentionFilter, setMentionFilter] = useState("");
@@ -79,6 +81,22 @@ export function MessageInput({ onSend, mentionOptions = [] }: MessageInputProps)
     u.username.toLowerCase().includes(mentionFilter) ||
     u.name.toLowerCase().includes(mentionFilter)
   );
+
+  if (!isSignedIn) {
+    return (
+      <div className="border-t border-border bg-background/80 px-4 py-3">
+        <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3">
+          <LogIn className="size-4 shrink-0 text-muted-foreground" />
+          <p className="flex-1 text-sm text-muted-foreground">
+            <button onClick={signIn} className="font-medium text-[#3B82F6] hover:underline cursor-pointer">
+              Sign in
+            </button>{" "}
+            to send messages.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative border-t border-border bg-background/80 px-4 py-3">

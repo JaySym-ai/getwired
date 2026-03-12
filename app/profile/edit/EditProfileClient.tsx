@@ -13,11 +13,11 @@ import { useAppAuth } from "@/lib/auth";
 import { TECH_STACKS, AI_TOOLS } from "@/lib/constants";
 import { api } from "../../../convex/_generated/api";
 import { toast } from "sonner";
-import { Save, User, Link2, Code2, Briefcase, FolderGit2, X, Camera } from "lucide-react";
+import { LogIn, Save, User, Link2, Code2, Briefcase, FolderGit2, X, Camera } from "lucide-react";
 import { UserAvatar } from "@/components/shared/Avatar";
 
 export function EditProfileClient() {
-  const { user } = useAppAuth();
+  const { user, isSignedIn, signIn } = useAppAuth();
   const updateCurrentProfile = useMutation(api.users.updateCurrentProfile);
   const generateAvatarUploadUrl = useMutation(api.users.generateAvatarUploadUrl);
   const saveCurrentAvatar = useMutation(api.users.saveCurrentAvatar);
@@ -127,8 +127,21 @@ export function EditProfileClient() {
     }
   };
 
-  if (!user) {
-    return null;
+  if (!user || !isSignedIn) {
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-6">
+        <h1 className="mb-6 text-2xl font-bold text-foreground">Edit Profile</h1>
+        <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-8">
+          <LogIn className="size-5 shrink-0 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            <button onClick={signIn} className="font-medium text-[#3B82F6] hover:underline cursor-pointer">
+              Sign in
+            </button>{" "}
+            to edit your profile.
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (

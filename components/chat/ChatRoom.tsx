@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { MessageBubble, type ChatReaction } from "./MessageBubble";
 import { MessageInput } from "./MessageInput";
 import { TypingIndicator } from "./TypingIndicator";
 import { ThreadView } from "./ThreadView";
+import { useAppAuth } from "@/lib/auth";
+import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 
 interface ChatRoomProps {
@@ -16,11 +18,42 @@ interface ChatRoomProps {
 }
 
 export function ChatRoom({ roomId }: ChatRoomProps) {
+  const { isSignedIn, signIn } = useAppAuth();
   const room = useQuery(api.chat.getRoomById, { roomId: roomId as never });
   const messages = useQuery(api.chat.getMessages, { roomId: roomId as never, limit: 100 }) ?? [];
   const users = useQuery(api.users.list, {}) ?? [];
-  const sendMessage = useMutation(api.chat.sendMessage);
-  const toggleReaction = useMutation(api.chat.toggleReaction);
+  const sendMessageMutation = useMutation(api.chat.sendMessage);
+  const toggleReactionMutation = useMutation(api.chat.toggleReaction);
+
+  const requireAuth = useCallback(
+    (action: () => void) => {
+      if (!isSignedIn) {
+        toast.error("Sign in required", {
+          description: "You need to sign in to perform this action.",
+          action: { label: "Sign In", onClick: signIn },
+        });
+        return;
+      }
+      action();
+    },
+    [isSignedIn, signIn],
+  );
+
+  const sendMessage = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (args: any) => {
+      requireAuth(() => void sendMessageMutation(args));
+    },
+    [requireAuth, sendMessageMutation],
+  );
+
+  const toggleReaction = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (args: any) => {
+      requireAuth(() => void toggleReactionMutation(args));
+    },
+    [requireAuth, toggleReactionMutation],
+  );
 
   const [threadMessageId, setThreadMessageId] = useState<string | null>(null);
   const threadReplies = useQuery(

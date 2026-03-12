@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { PenLine, X, Send } from "lucide-react";
+import { LogIn, PenLine, X, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,7 +19,7 @@ import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 
 export function PostComposer() {
-  const { user, isSignedIn } = useAppAuth();
+  const { user, isSignedIn, signIn } = useAppAuth();
   const categories = useQuery(api.forums.listCategories, {}) ?? [];
   const createPost = useMutation(api.posts.create);
   const [expanded, setExpanded] = useState(false);
@@ -29,7 +29,19 @@ export function PostComposer() {
   const [category, setCategory] = useState("");
   const [tagInput, setTagInput] = useState("");
 
-  if (!isSignedIn || !user) return null;
+  if (!isSignedIn || !user) {
+    return (
+      <div className="glass flex items-center gap-3 rounded-xl px-4 py-4">
+        <LogIn className="size-4 shrink-0 text-muted-foreground" />
+        <p className="flex-1 text-sm text-muted-foreground">
+          <button onClick={signIn} className="font-medium text-[#3B82F6] hover:underline cursor-pointer">
+            Sign in
+          </button>{" "}
+          to create a post.
+        </p>
+      </div>
+    );
+  }
 
   const handleSubmit = async () => {
     if (!title.trim() || !content.trim()) {

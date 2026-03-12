@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Send } from "lucide-react";
+import { LogIn, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { UserAvatar } from "@/components/shared/Avatar";
@@ -20,7 +20,7 @@ export function CommentComposer({
   onCancel,
   compact = false,
 }: CommentComposerProps) {
-  const { user } = useAppAuth();
+  const { user, signIn } = useAppAuth();
   const [content, setContent] = useState("");
 
   const handleSubmit = () => {
@@ -30,7 +30,19 @@ export function CommentComposer({
     setContent("");
   };
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-3">
+        <LogIn className="size-4 shrink-0 text-muted-foreground" />
+        <p className="flex-1 text-sm text-muted-foreground">
+          <button onClick={signIn} className="font-medium text-[#3B82F6] hover:underline cursor-pointer">
+            Sign in
+          </button>{" "}
+          to join the conversation.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex gap-3">

@@ -1,13 +1,15 @@
 "use client";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Heart, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/shared/Avatar";
 import { RankBadge } from "@/components/shared/Badge";
 import { CommentComposer } from "./CommentComposer";
+import { useAppAuth } from "@/lib/auth";
+import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 
 type SortOption = "best" | "new" | "old";
@@ -158,13 +160,25 @@ export function CommentTree({ postId }: { postId: string }) {
     [comments, sortBy],
   );
 
-  const handleReply = async (parentId: string | undefined, content: string) => {
-    await createComment({
-      postId: postId as never,
-      parentId: parentId ? (parentId as never) : undefined,
-      content,
-    });
-  };
+  const { isSignedIn, signIn } = useAppAuth();
+
+  const handleReply = useCallback(
+    async (parentId: string | undefined, content: string) => {
+      if (!isSignedIn) {
+        toast.error("Sign in required", {
+          description: "You need to sign in to comment.",
+          action: { label: "Sign In", onClick: signIn },
+        });
+        return;
+      }
+      await createComment({
+        postId: postId as never,
+        parentId: parentId ? (parentId as never) : undefined,
+        content,
+      });
+    },
+    [isSignedIn, signIn, createComment, postId],
+  );
 
   return (
     <div className="space-y-4">

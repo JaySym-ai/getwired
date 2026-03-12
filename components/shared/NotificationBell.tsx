@@ -11,7 +11,7 @@ import { useAppAuth } from "@/lib/auth";
 import { api } from "../../convex/_generated/api";
 
 export function NotificationBell() {
-  const { user } = useAppAuth();
+  const { user, isSignedIn, signIn } = useAppAuth();
   const notificationsQuery = useQuery(
     api.notifications.getByUser,
     user?.convexUserId ? { userId: user.convexUserId, limit: 5 } : "skip",
@@ -36,7 +36,10 @@ export function NotificationBell() {
           <h3 className="text-sm font-semibold text-foreground">Notifications</h3>
           {unreadCount > 0 && (
             <button
-              onClick={() => void markAllRead({})}
+              onClick={() => {
+                if (!isSignedIn) { signIn(); return; }
+                void markAllRead({});
+              }}
               className="flex items-center gap-1 text-xs text-[#3B82F6] hover:underline"
             >
               <CheckCheck className="size-3" />
@@ -60,7 +63,10 @@ export function NotificationBell() {
                   link={notification.link}
                   isRead={notification.isRead}
                   createdAt={notification.createdAt}
-                  onClick={() => void markRead({ notificationId: notification._id })}
+                  onClick={() => {
+                    if (!isSignedIn) { signIn(); return; }
+                    void markRead({ notificationId: notification._id });
+                  }}
                 />
               ))}
             </div>

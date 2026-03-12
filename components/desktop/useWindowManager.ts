@@ -209,11 +209,17 @@ export function useWindowManager(): WindowManagerContextValue {
 export function useWindowManagerProvider(): WindowManagerContextValue {
   const [state, dispatch] = useReducer(windowManagerReducer, initialState);
 
-  // Restore state from localStorage on mount (SSR-safe)
+  // Restore state from localStorage on mount, or open defaults for first-time visitors
   useEffect(() => {
     const saved = loadFromLocalStorage();
     if (saved && saved.windows.length > 0) {
       dispatch({ type: "RESTORE_STATE", state: saved });
+    } else {
+      // First visit: open Feed, Forums, and News by default
+      const defaultApps = ["feed", "forums", "news"];
+      for (const appId of defaultApps) {
+        dispatch({ type: "OPEN_WINDOW", appId });
+      }
     }
   }, []);
 
