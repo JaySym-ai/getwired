@@ -43,7 +43,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className="antialiased min-h-screen bg-background text-foreground overflow-hidden"
+        className="min-h-screen overflow-x-hidden bg-background text-foreground antialiased"
       >
         <AppProviders>
           <RootShell>{children}</RootShell>

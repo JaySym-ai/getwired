@@ -74,12 +74,12 @@ export const getDetailedForCurrentUser = query({
             return null;
           }
 
-          const post = await ctx.db.get("posts", postId);
+          const post = await ctx.db.get(postId);
           if (!post) {
             return null;
           }
 
-          const author = await ctx.db.get("users", post.authorId);
+          const author = await ctx.db.get(post.authorId);
           return {
             id: bookmark._id,
             targetType: "post" as const,
@@ -101,7 +101,7 @@ export const getDetailedForCurrentUser = query({
             return null;
           }
 
-          const article = await ctx.db.get("newsArticles", articleId);
+          const article = await ctx.db.get(articleId);
           if (!article) {
             return null;
           }
@@ -188,12 +188,12 @@ export const removeForCurrentUser = mutation({
   args: { bookmarkId: v.id("bookmarks") },
   handler: async (ctx, args) => {
     const currentUser = await requireCurrentUser(ctx);
-    const bookmark = await ctx.db.get("bookmarks", args.bookmarkId);
+    const bookmark = await ctx.db.get(args.bookmarkId);
 
     if (!bookmark || bookmark.userId !== currentUser._id) {
       throw new Error("Bookmark not found");
     }
 
-    await ctx.db.delete("bookmarks", args.bookmarkId);
+    await ctx.db.delete(args.bookmarkId);
   },
 });

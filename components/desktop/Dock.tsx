@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Rss, MessageSquare, MessagesSquare, Newspaper, Compass,
   Rocket, User, Bookmark, Bell, Search, Shield, Mail,
@@ -29,21 +29,13 @@ const STORAGE_KEY = "getwired-sidebar-expanded";
 export function Sidebar() {
   const { state, openWindow, focusWindow, restoreWindow } = useWindowManager();
   const [expanded, setExpanded] = useState(true);
-  const [mounted, setMounted] = useState(false);
-
-  // Read localStorage after mount (SSR-safe)
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored !== null) {
-      setExpanded(stored === "true");
-    }
-    setMounted(true);
-  }, []);
 
   function toggleExpanded() {
     setExpanded((prev) => {
       const next = !prev;
-      localStorage.setItem(STORAGE_KEY, String(next));
+      if (typeof window !== "undefined") {
+        localStorage.setItem(STORAGE_KEY, String(next));
+      }
       return next;
     });
   }
@@ -73,7 +65,7 @@ export function Sidebar() {
   return (
     <div
       className="absolute left-3 top-1/2 -translate-y-1/2 z-[9999] flex flex-col bg-zinc-950/80 backdrop-blur-xl border border-white/[0.08] rounded-2xl transition-all duration-300 ease-in-out shadow-2xl"
-      style={{ width: mounted ? sidebarWidth : SIDEBAR_WIDTH_EXPANDED }}
+      style={{ width: sidebarWidth }}
     >
       {/* Top: Logo */}
       <div className="flex items-center h-14 px-4 shrink-0">

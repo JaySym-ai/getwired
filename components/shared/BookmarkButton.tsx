@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,15 @@ function setBookmarks(bookmarks: Record<string, boolean>) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(bookmarks));
 }
 
+function getInitialBookmarked(key: string, initialBookmarked: boolean) {
+  const stored = getBookmarks();
+  if (key in stored) {
+    return stored[key] ?? false;
+  }
+
+  return initialBookmarked;
+}
+
 export function BookmarkButton({
   targetId,
   targetType,
@@ -35,14 +44,9 @@ export function BookmarkButton({
   className,
 }: BookmarkButtonProps) {
   const key = `${targetType}:${targetId}`;
-  const [bookmarked, setBookmarked] = useState(initialBookmarked);
-
-  useEffect(() => {
-    const stored = getBookmarks();
-    if (key in stored) {
-      setBookmarked(stored[key] ?? false);
-    }
-  }, [key]);
+  const [bookmarked, setBookmarked] = useState(() =>
+    getInitialBookmarked(key, initialBookmarked),
+  );
 
   const toggle = () => {
     const next = !bookmarked;
@@ -70,4 +74,3 @@ export function BookmarkButton({
     </Button>
   );
 }
-

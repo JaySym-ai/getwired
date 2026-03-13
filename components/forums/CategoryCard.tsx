@@ -32,6 +32,8 @@ interface CategoryCardProps {
   color: string;
   description: string;
   postCount: number;
+  commentCount?: number;
+  latestPostTitle?: string | null;
 }
 
 export function CategoryCard({
@@ -41,6 +43,8 @@ export function CategoryCard({
   color,
   description,
   postCount,
+  commentCount = 0,
+  latestPostTitle,
 }: CategoryCardProps) {
   const Icon = iconMap[icon] ?? Brain;
 
@@ -74,10 +78,20 @@ export function CategoryCard({
             <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
               {description}
             </p>
+            <div className="mt-3 flex items-center gap-3 text-[11px] text-muted-foreground">
+              <span>{postCount} posts</span>
+              <span>{commentCount} replies</span>
+            </div>
+            {latestPostTitle ? (
+              <p className="mt-2 line-clamp-1 text-[11px] text-foreground/80">
+                Latest: {latestPostTitle}
+              </p>
+            ) : (
+              <p className="mt-2 text-[11px] text-muted-foreground">No posts yet.</p>
+            )}
           </div>
         </div>
       </div>
     </Link>
   );
 }
-

@@ -4,7 +4,6 @@ import { Check } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 interface BoostTier {
@@ -20,6 +19,10 @@ interface BoostCardProps {
 }
 
 export function BoostCard({ tier }: BoostCardProps) {
+  const openSales = () => {
+    window.location.href = "mailto:sales@getwired.dev?subject=GetWired%20Boost%20Inquiry";
+  };
+
   return (
     <Card
       className={cn(
@@ -52,7 +55,7 @@ export function BoostCard({ tier }: BoostCardProps) {
       </ul>
 
       <Button
-        onClick={() => toast.info("Demo mode — payments not connected")}
+        onClick={openSales}
         className={cn(
           "w-full font-semibold",
           tier.popular
@@ -60,9 +63,8 @@ export function BoostCard({ tier }: BoostCardProps) {
             : "bg-muted text-foreground hover:bg-accent"
         )}
       >
-        Buy Now
+        Contact Sales
       </Button>
     </Card>
   );
 }
-

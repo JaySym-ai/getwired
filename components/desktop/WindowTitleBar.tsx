@@ -47,7 +47,14 @@ export function WindowTitleBar({
         "border-white/[0.06]",
         isFocused ? "bg-zinc-800/80" : "bg-zinc-800/50",
       )}
-      onDoubleClick={() => isMaximized ? onRestore() : onMaximize()}
+      onDoubleClick={() => {
+        if (isMaximized) {
+          onRestore();
+          return;
+        }
+
+        onMaximize();
+      }}
     >
       {/* Window controls */}
       <div className="flex items-center gap-1">

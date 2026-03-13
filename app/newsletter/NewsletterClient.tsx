@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
 import {
   Mail,
   Newspaper,
@@ -15,7 +16,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAppAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import { api } from "../../convex/_generated/api";
 
 const BENEFITS = [
   { icon: Newspaper, text: "Curated tech news" },
@@ -24,36 +27,68 @@ const BENEFITS = [
   { icon: Briefcase, text: "Job opportunities" },
 ];
 
-const PAST_ISSUES = [
-  {
-    date: "Mar 3, 2026",
-    title: "GPT-5 Launch Reactions & What It Means for Developers",
-    topics: ["AI", "LLMs", "Developer Tools"],
-  },
-  {
-    date: "Feb 24, 2026",
-    title: "The State of React in 2026 — RSC, Compiler & Beyond",
-    topics: ["React", "Next.js", "Frontend"],
-  },
-  {
-    date: "Feb 17, 2026",
-    title: "Rust Hits #3 on TIOBE — Why Systems Devs Are Switching",
-    topics: ["Rust", "Systems", "Performance"],
-  },
-];
+function formatDigestDate(timestamp: number) {
+  return new Date(timestamp).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 export function NewsletterClient() {
-  const [email, setEmail] = useState("");
+  const { user } = useAppAuth();
+  const [email, setEmail] = useState(user?.email ?? "");
   const [subscribed, setSubscribed] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const summary = useQuery(api.newsletter.getSummary, {}) ?? {
+    activeSubscriberCount: 0,
+    latestDigestItems: [],
+  };
+  const existingSubscription = useQuery(
+    api.newsletter.isSubscribed,
+    email.trim() ? { email } : "skip",
+  );
+  const subscribe = useMutation(api.newsletter.subscribe);
 
-  const handleSubscribe = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (user?.email) {
+      setEmail((current) => current || user.email);
+    }
+  }, [user?.email]);
+
+  useEffect(() => {
+    if (existingSubscription) {
+      setSubscribed(true);
+    }
+  }, [existingSubscription]);
+
+  const digestItems = useMemo(() => summary.latestDigestItems ?? [], [summary.latestDigestItems]);
+
+  const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.includes("@")) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail.includes("@")) {
       toast.error("Please enter a valid email address");
       return;
     }
-    setSubscribed(true);
-    toast.success("You're subscribed! Welcome to the Wired.");
+
+    try {
+      setIsSubmitting(true);
+      await subscribe({
+        email: normalizedEmail,
+        userId: user?.convexUserId,
+      });
+      setSubscribed(true);
+      setEmail(normalizedEmail);
+      toast.success("Subscription updated");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to subscribe right now",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -92,16 +127,17 @@ export function NewsletterClient() {
             />
             <Button
               type="submit"
+              disabled={isSubmitting}
               className="bg-[#3B82F6] text-white font-semibold hover:bg-[#2563EB] px-6 shrink-0"
               data-testid="newsletter-subscribe-button"
               aria-label="Subscribe to newsletter"
             >
-              Subscribe
+              {isSubmitting ? "Saving..." : subscribed ? "Subscribed" : "Subscribe"}
             </Button>
           </form>
           <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground">
             <Users className="size-3" />
-            <span>2,847 subscribers</span>
+            <span>{summary.activeSubscriberCount.toLocaleString()} subscribers</span>
             <span>·</span>
             <span>Free, unsubscribe anytime</span>
           </div>
@@ -122,20 +158,22 @@ export function NewsletterClient() {
       <section>
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="size-5 text-[#3B82F6]" />
-          <h2 className="text-lg font-bold text-foreground">Past Issues</h2>
+          <h2 className="text-lg font-bold text-foreground">Latest In The Digest</h2>
         </div>
         <div className="space-y-3">
-          {PAST_ISSUES.map((issue) => (
-            <Card key={issue.date} className="glass border-border p-4 hover:border-border transition-colors">
+          {digestItems.map((issue) => (
+            <Card key={issue._id} className="glass border-border p-4 transition-colors hover:border-border">
               <div className="flex items-start gap-3">
                 <div className="rounded-md bg-[#3B82F6]/10 p-2 shrink-0">
                   <Calendar className="size-4 text-[#3B82F6]" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">{issue.date}</p>
+                  <p className="mb-1 text-xs text-muted-foreground">
+                    {formatDigestDate(issue.publishedAt)} · {issue.source}
+                  </p>
                   <h3 className="text-sm font-medium text-foreground">{issue.title}</h3>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {issue.topics.map((t) => (
+                    {issue.tags.map((t: string) => (
                       <Badge key={t} variant="outline" className="text-[10px] border-border text-muted-foreground">
                         {t}
                       </Badge>
@@ -145,9 +183,13 @@ export function NewsletterClient() {
               </div>
             </Card>
           ))}
+          {digestItems.length === 0 && (
+            <Card className="glass border-border p-4 text-sm text-muted-foreground">
+              Digest items will appear after news feeds finish syncing.
+            </Card>
+          )}
         </div>
       </section>
     </main>
   );
 }
-

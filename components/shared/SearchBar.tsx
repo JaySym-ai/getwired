@@ -30,13 +30,7 @@ export function SearchBar({
   const [internalValue, setInternalValue] = useState(controlledValue ?? "");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Sync controlled value
-  useEffect(() => {
-    if (controlledValue !== undefined) {
-      setInternalValue(controlledValue);
-    }
-  }, [controlledValue]);
+  const currentValue = controlledValue ?? internalValue;
 
   const debouncedOnChange = useCallback(
     (val: string) => {
@@ -50,12 +44,16 @@ export function SearchBar({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
-    setInternalValue(val);
+    if (controlledValue === undefined) {
+      setInternalValue(val);
+    }
     debouncedOnChange(val);
   };
 
   const handleClear = () => {
-    setInternalValue("");
+    if (controlledValue === undefined) {
+      setInternalValue("");
+    }
     onChange?.("");
     inputRef.current?.focus();
   };
@@ -82,7 +80,7 @@ export function SearchBar({
       />
       <Input
         ref={inputRef}
-        value={internalValue}
+        value={currentValue}
         onChange={handleChange}
         placeholder={placeholder}
         autoFocus={autoFocus}
@@ -93,7 +91,7 @@ export function SearchBar({
           size === "lg" ? "h-12 text-base rounded-xl" : "h-8 text-sm"
         )}
       />
-      {internalValue && (
+      {currentValue && (
         <Button
           variant="ghost"
           size="icon-xs"
@@ -108,4 +106,3 @@ export function SearchBar({
     </div>
   );
 }
-

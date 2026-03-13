@@ -185,7 +185,7 @@ export const syncFromClerk = mutation({
       .first();
 
     if (existing) {
-      await ctx.db.patch("users", existing._id, {
+      await ctx.db.patch(existing._id, {
         name: args.name,
         email: args.email,
         avatar: existing.avatarStorageId ? existing.avatar : args.avatar,
@@ -298,7 +298,7 @@ export const updateCurrentProfile = mutation({
     const { user } = await requireCurrentUser(ctx);
     const username = await getAvailableUsername(ctx, args.username, user._id);
 
-    await ctx.db.patch("users", user._id, {
+    await ctx.db.patch(user._id, {
       name: args.name,
       username,
       bio: args.bio,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BarChart3, Clock } from "lucide-react";
@@ -35,17 +35,11 @@ function saveVote(pollId: string, optionIndex: number) {
 }
 
 export function Poll({ pollId, question, options, expiresAt }: PollProps) {
-  const [selected, setSelected] = useState<number | null>(null);
-  const [hasVoted, setHasVoted] = useState(false);
+  const [initialVote] = useState(() => getVotedPolls()[pollId]);
+  const [selected, setSelected] = useState<number | null>(initialVote ?? null);
+  const [hasVoted, setHasVoted] = useState(() => initialVote !== undefined);
   const [localOptions, setLocalOptions] = useState(options);
-
-  useEffect(() => {
-    const votes = getVotedPolls();
-    if (pollId in votes) {
-      setHasVoted(true);
-      setSelected(votes[pollId] ?? null);
-    }
-  }, [pollId]);
+  const [renderedAt] = useState(() => Date.now());
 
   const totalVotes = localOptions.reduce((sum, o) => sum + o.votes, 0);
 
@@ -59,7 +53,7 @@ export function Poll({ pollId, question, options, expiresAt }: PollProps) {
     saveVote(pollId, selected);
   };
 
-  const isExpired = expiresAt ? Date.now() > expiresAt : false;
+  const isExpired = expiresAt ? renderedAt > expiresAt : false;
 
   return (
     <Card className="glass border-border" data-testid="poll">
@@ -152,4 +146,3 @@ export function Poll({ pollId, question, options, expiresAt }: PollProps) {
     </Card>
   );
 }
-

@@ -47,13 +47,13 @@ export const markRead = mutation({
   args: { notificationId: v.id("notifications") },
   handler: async (ctx, args) => {
     const currentUser = await requireCurrentUser(ctx);
-    const notification = await ctx.db.get("notifications", args.notificationId);
+    const notification = await ctx.db.get(args.notificationId);
 
     if (!notification || notification.userId !== currentUser._id) {
       throw new Error("Notification not found");
     }
 
-    await ctx.db.patch("notifications", args.notificationId, { isRead: true });
+    await ctx.db.patch(args.notificationId, { isRead: true });
   },
 });
 
@@ -69,9 +69,7 @@ export const markAllRead = mutation({
     await Promise.all(
       notifications
         .filter((notification) => !notification.isRead)
-        .map((notification) =>
-          ctx.db.patch("notifications", notification._id, { isRead: true }),
-        ),
+        .map((notification) => ctx.db.patch(notification._id, { isRead: true })),
     );
   },
 });

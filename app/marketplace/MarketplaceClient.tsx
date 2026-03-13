@@ -4,7 +4,6 @@ import {
   Rocket,
   Megaphone,
   Crown,
-  Check,
   Zap,
   Image as ImageIcon,
   FileText,
@@ -13,11 +12,12 @@ import {
   Headphones,
   Infinity,
 } from "lucide-react";
+import { useQuery } from "convex/react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BoostCard } from "@/components/marketplace/BoostCard";
-import { toast } from "sonner";
+import { api } from "../../convex/_generated/api";
 
 const BOOST_TIERS = [
   {
@@ -83,6 +83,20 @@ const PREMIUM_FEATURES = [
 ];
 
 export function MarketplaceClient() {
+  const summary = useQuery(api.marketplace.getSummary, {}) ?? {
+    activePromotionCount: 0,
+    counts: { boost: 0, banner: 0, sponsored: 0 },
+    totalImpressions: 0,
+    totalClicks: 0,
+  };
+  const openAdvertisingSales = () => {
+    window.location.href =
+      "mailto:sales@getwired.dev?subject=GetWired%20Advertising%20Inquiry";
+  };
+  const openPremiumSales = () => {
+    window.location.href = "mailto:sales@getwired.dev?subject=GetWired%20Premium%20Inquiry";
+  };
+
   return (
     <main className="mx-auto max-w-5xl px-4 py-8" data-testid="marketplace-page">
       {/* Hero */}
@@ -96,6 +110,30 @@ export function MarketplaceClient() {
         <p className="mx-auto max-w-xl text-muted-foreground">
           Promote your posts, advertise your products, and unlock premium features to get the most out of GetWired.dev.
         </p>
+        <div className="mt-6 grid gap-3 text-left sm:grid-cols-4">
+          <Card className="glass border-border p-4">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Active campaigns</p>
+            <p className="mt-2 text-2xl font-semibold text-foreground">
+              {summary.activePromotionCount}
+            </p>
+          </Card>
+          <Card className="glass border-border p-4">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Boosts live</p>
+            <p className="mt-2 text-2xl font-semibold text-foreground">{summary.counts.boost}</p>
+          </Card>
+          <Card className="glass border-border p-4">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Impressions</p>
+            <p className="mt-2 text-2xl font-semibold text-foreground">
+              {summary.totalImpressions.toLocaleString()}
+            </p>
+          </Card>
+          <Card className="glass border-border p-4">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Clicks</p>
+            <p className="mt-2 text-2xl font-semibold text-foreground">
+              {summary.totalClicks.toLocaleString()}
+            </p>
+          </Card>
+        </div>
       </div>
 
       {/* Boost Section */}
@@ -136,7 +174,7 @@ export function MarketplaceClient() {
                     variant="outline"
                     size="sm"
                     className="border-border hover:border-[#3B82F6]/30 hover:text-[#3B82F6]"
-                    onClick={() => toast.info("Demo mode — payments not connected")}
+                    onClick={openAdvertisingSales}
                   >
                     Get Started
                   </Button>
@@ -176,9 +214,9 @@ export function MarketplaceClient() {
               <Button
                 size="lg"
                 className="bg-[#3B82F6] text-white font-semibold hover:bg-[#2563EB] px-8"
-                onClick={() => toast.info("Demo mode — payments not connected")}
+                onClick={openPremiumSales}
               >
-                Subscribe Now
+                Contact Sales
               </Button>
               <p className="text-xs text-muted-foreground">Cancel anytime</p>
             </div>
@@ -188,4 +226,3 @@ export function MarketplaceClient() {
     </main>
   );
 }
-

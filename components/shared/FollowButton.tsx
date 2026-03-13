@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { UserPlus, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,15 @@ function setFollows(follows: Record<string, boolean>) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(follows));
 }
 
+function getInitialFollowing(key: string, initialFollowing: boolean) {
+  const stored = getFollows();
+  if (key in stored) {
+    return stored[key] ?? false;
+  }
+
+  return initialFollowing;
+}
+
 export function FollowButton({
   targetId,
   targetType,
@@ -34,14 +43,9 @@ export function FollowButton({
   className,
 }: FollowButtonProps) {
   const key = `${targetType}:${targetId}`;
-  const [following, setFollowing] = useState(initialFollowing);
-
-  useEffect(() => {
-    const stored = getFollows();
-    if (key in stored) {
-      setFollowing(stored[key] ?? false);
-    }
-  }, [key]);
+  const [following, setFollowing] = useState(() =>
+    getInitialFollowing(key, initialFollowing),
+  );
 
   const toggle = () => {
     const next = !following;
@@ -81,4 +85,3 @@ export function FollowButton({
     </Button>
   );
 }
-

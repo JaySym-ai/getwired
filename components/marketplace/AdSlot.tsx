@@ -28,7 +28,8 @@ const DEMO_ADS = [
 
 export function AdSlot() {
   const [clickCount, setClickCount] = useState(0);
-  const ad = DEMO_ADS[Math.floor(Date.now() / 60000) % DEMO_ADS.length]!;
+  const [adIndex] = useState(() => Math.floor(Date.now() / 60000) % DEMO_ADS.length);
+  const ad = DEMO_ADS[adIndex]!;
 
   return (
     <Card
@@ -56,4 +57,3 @@ export function AdSlot() {
     </Card>
   );
 }
-

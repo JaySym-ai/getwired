@@ -32,6 +32,11 @@ export const APP_REGISTRY: Record<string, AppRegistryEntry> = {
 
 const STORAGE_KEY = "getwired-desktop-layout";
 
+interface PersistedWindowState {
+  id: string;
+  appId: string;
+}
+
 function saveToLocalStorage(state: WindowManagerState): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -46,9 +51,19 @@ function loadFromLocalStorage(): WindowManagerState | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed.windows || !Array.isArray(parsed.windows)) return null;
-    const validWindows = parsed.windows.filter(
-      (w: any) => w.id && w.appId && APP_REGISTRY[w.appId],
-    );
+    const validWindows = parsed.windows.filter((windowState: unknown) => {
+      if (
+        !windowState ||
+        typeof windowState !== "object" ||
+        !("id" in windowState) ||
+        !("appId" in windowState)
+      ) {
+        return false;
+      }
+
+      const candidate = windowState as PersistedWindowState;
+      return typeof candidate.id === "string" && candidate.appId in APP_REGISTRY;
+    });
     return {
       windows: validWindows,
       nextZIndex: parsed.nextZIndex || validWindows.length + 1,

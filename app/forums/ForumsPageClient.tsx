@@ -54,6 +54,8 @@ export function ForumsPageClient() {
             color={cat.color}
             description={cat.description}
             postCount={cat.postCount}
+            commentCount={cat.commentCount}
+            latestPostTitle={cat.latestPost?.title}
           />
         ))}
       </div>
