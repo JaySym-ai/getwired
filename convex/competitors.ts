@@ -72,11 +72,11 @@ export const getCompetitorKeywords = query({
 export const discoverCompetitors = action({
   args: { projectId: v.id("projects"), domain: v.string() },
   handler: async (ctx, { projectId, domain }) => {
-    const login = process.env.DATAFORSEO_LOGIN;
-    const password = process.env.DATAFORSEO_PASSWORD;
+    const workerUrl = process.env.WORKER_API_URL;
+    const workerKey = process.env.WORKER_API_KEY;
 
-    if (!login || !password) {
-      console.warn("DataForSEO credentials not configured, using mock data");
+    if (!workerUrl || !workerKey) {
+      console.warn("Worker not configured, using mock data");
       // Insert mock competitors for development
       const mockCompetitors = [
         { domain: "competitor1.com", name: "Competitor One", overlapScore: 72 },
@@ -92,35 +92,24 @@ export const discoverCompetitors = action({
       return;
     }
 
-    const auth = btoa(`${login}:${password}`);
-    const response = await fetch(
-      "https://api.dataforseo.com/v3/dataforseo_labs/google/competitors_domain/live",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${auth}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify([
-          {
-            target: domain,
-            language_code: "en",
-            location_code: 2840,
-            limit: 10,
-          },
-        ]),
-      }
-    );
+    const response = await fetch(`${workerUrl}/api/v1/competitors`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${workerKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ domain }),
+    });
 
     const data = await response.json();
-    const results = data?.tasks?.[0]?.result?.[0]?.items ?? [];
+    const competitors = data?.competitors ?? [];
 
-    for (const item of results.slice(0, 10)) {
+    for (const comp of competitors.slice(0, 10)) {
       await ctx.runMutation(internal.competitors.insertCompetitor, {
         projectId,
-        domain: item.domain,
-        name: item.domain,
-        overlapScore: Math.round((item.avg_position ?? 0) * 10),
+        domain: comp.domain,
+        name: comp.name || comp.domain,
+        overlapScore: comp.overlapScore,
       });
     }
   },

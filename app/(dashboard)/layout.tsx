@@ -3,7 +3,7 @@
 import { useConvexAuth } from "convex/react";
 import { useMutation } from "convex/react";
 import { useEffect, useRef } from "react";
-import { RedirectToSignIn, useUser } from "@clerk/nextjs";
+import { useUser, useAuth } from "@clerk/nextjs";
 import { api } from "@/convex/_generated/api";
 
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
@@ -15,13 +15,14 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, isLoading } = useConvexAuth();
+  const { isAuthenticated: isConvexAuthenticated, isLoading: isConvexLoading } = useConvexAuth();
+  const { isSignedIn, isLoaded: isClerkLoaded } = useAuth();
   const { user } = useUser();
   const ensureUser = useMutation(api.users.ensureUser);
   const hasEnsuredUser = useRef(false);
 
   useEffect(() => {
-    if (isAuthenticated && user && !hasEnsuredUser.current) {
+    if (isConvexAuthenticated && user && !hasEnsuredUser.current) {
       hasEnsuredUser.current = true;
       ensureUser({
         clerkId: user.id,
@@ -30,9 +31,12 @@ export default function DashboardLayout({
         imageUrl: user.imageUrl ?? undefined,
       });
     }
-  }, [isAuthenticated, user, ensureUser]);
+  }, [isConvexAuthenticated, user, ensureUser]);
 
-  if (isLoading) {
+  // Wait for both Clerk and Convex to finish loading before making any decision.
+  // This prevents the redirect loop where Convex auth hasn't synced yet
+  // but Clerk is already signed in.
+  if (!isClerkLoaded || isConvexLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -40,8 +44,13 @@ export default function DashboardLayout({
     );
   }
 
-  if (!isAuthenticated) {
-    return <RedirectToSignIn />;
+  // Only redirect if Clerk itself says the user is not signed in.
+  // The middleware already protects these routes, so this is a fallback.
+  // We intentionally do NOT redirect based on Convex auth state to avoid
+  // a loop when the Clerk→Convex token handoff is still in progress.
+  if (!isSignedIn) {
+    // Middleware will handle the redirect; render nothing to avoid flash.
+    return null;
   }
 
   return (

@@ -64,54 +64,49 @@ export const analyzeKeywords = action({
         trendDirection?: "rising" | "stable" | "declining";
       } = {};
 
-      // 1. SEO Data (DataForSEO)
-      const login = process.env.DATAFORSEO_LOGIN;
-      const password = process.env.DATAFORSEO_PASSWORD;
+      // 1. Keyword Metrics (self-hosted worker)
+      const workerUrl = process.env.WORKER_API_URL;
+      const workerKey = process.env.WORKER_API_KEY;
 
-      if (login && password) {
+      if (workerUrl && workerKey) {
         try {
-          const auth = btoa(`${login}:${password}`);
-          const seoRes = await fetch(
-            "https://api.dataforseo.com/v3/dataforseo_labs/google/keyword_info/live",
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Basic ${auth}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify([
-                { keywords: [kw.keyword], language_code: "en", location_code: 2840 },
-              ]),
-            }
-          );
+          const seoRes = await fetch(`${workerUrl}/api/v1/keyword-metrics`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${workerKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              keyword: kw.keyword,
+              language: "en",
+              location: "US",
+            }),
+          });
           const seoData = await seoRes.json();
-          const info = seoData?.tasks?.[0]?.result?.[0];
-          if (info) {
-            metrics.searchVolume = info.search_volume;
-            metrics.difficulty = info.keyword_difficulty;
+          if (seoData.search_volume !== undefined) {
+            metrics.searchVolume = seoData.search_volume;
+            metrics.difficulty = seoData.keyword_difficulty;
           }
         } catch (e) {
-          console.error("SEO analysis failed:", e);
+          console.error("Worker keyword metrics failed:", e);
         }
-      }
 
-      // 2. Google Trends (SerpApi)
-      const serpApiKey = process.env.SERPAPI_KEY;
-      if (serpApiKey) {
+        // 2. Trend Analysis (self-hosted worker)
         try {
-          const trendsRes = await fetch(
-            `https://serpapi.com/search?engine=google_trends&q=${encodeURIComponent(kw.keyword)}&api_key=${serpApiKey}`
-          );
+          const trendsRes = await fetch(`${workerUrl}/api/v1/trends`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${workerKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ keyword: kw.keyword }),
+          });
           const trendsData = await trendsRes.json();
-          const values = trendsData?.interest_over_time?.timeline_data ?? [];
-          if (values.length >= 2) {
-            const recent = values[values.length - 1]?.values?.[0]?.extracted_value ?? 50;
-            const older = values[Math.floor(values.length / 2)]?.values?.[0]?.extracted_value ?? 50;
-            metrics.trendDirection = recent > older * 1.1 ? "rising" :
-                                     recent < older * 0.9 ? "declining" : "stable";
+          if (trendsData.trend_direction) {
+            metrics.trendDirection = trendsData.trend_direction;
           }
         } catch (e) {
-          console.error("Trends analysis failed:", e);
+          console.error("Worker trends analysis failed:", e);
         }
       }
 
