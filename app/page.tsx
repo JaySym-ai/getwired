@@ -1,205 +1,101 @@
-"use client";
-
-import { useMemo, useState } from "react";
-import Link from "next/link";
-import { useMutation, useQuery } from "convex/react";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { FeedList } from "@/components/feed/FeedList";
-import { PostComposer } from "@/components/feed/PostComposer";
-import { UserAvatar } from "@/components/shared/Avatar";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { useAppAuth } from "@/lib/auth";
-import { toast } from "sonner";
-import { Flame, Clock, Users, TrendingUp, Calendar, UserPlus, UserCheck } from "lucide-react";
-import { api } from "../convex/_generated/api";
-
-type FeedTab = "hot" | "new" | "following" | "trending";
-
-function formatEventDate(ts: number) {
-  return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-const ORG_JSON_LD = {
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  name: "GetWired.dev",
-  url: "https://getwired.dev",
-  description: "The all-in-one tech community platform for developers.",
-  sameAs: [],
-};
+import Image from "next/image";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<FeedTab>("hot");
-  const { isSignedIn, signIn } = useAppAuth();
-  const posts = useQuery(api.posts.listDetailed, { limit: 50 }) ?? [];
-  const tagStats = useQuery(api.posts.listTagStats, {}) ?? [];
-  const upcomingEvents = useQuery(api.events.getUpcoming, { limit: 3 }) ?? [];
-  const suggestedUsers = useQuery(api.users.listSuggestions, { limit: 3 }) ?? [];
-  const followedUserIds = useQuery(api.follows.getFollowedUserIds, isSignedIn ? {} : "skip") ?? [];
-  const toggleFollow = useMutation(api.follows.toggleFollow);
-
-  const filteredPosts = useMemo(() => {
-    const next = [...posts];
-
-    switch (activeTab) {
-      case "hot":
-        return next.sort((left, right) => {
-          const leftScore = left.likes + left.commentCount * 2 + left.views * 0.1;
-          const rightScore = right.likes + right.commentCount * 2 + right.views * 0.1;
-          return rightScore - leftScore;
-        });
-      case "new":
-        return next.sort((left, right) => right.createdAt - left.createdAt);
-      case "trending":
-        return next.sort((left, right) => right.views - left.views);
-      case "following":
-        return next
-          .filter((p) => followedUserIds.includes(p.authorId))
-          .sort((left, right) => right.createdAt - left.createdAt);
-      default:
-        return next;
-    }
-  }, [activeTab, posts, followedUserIds]);
-
   return (
-    <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6" data-testid="home-page">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(ORG_JSON_LD) }}
-      />
-      <Sidebar />
+    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
+      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
+        <Image
+          className="dark:invert"
+          src="/next.svg"
+          alt="Next.js logo"
+          width={180}
+          height={38}
+          priority
+        />
+        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
+          <li className="mb-2 tracking-[-.01em]">
+            Get started by editing{" "}
+            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
+              app/page.tsx
+            </code>
+            .
+          </li>
+          <li className="tracking-[-.01em]">Save and see your changes instantly.</li>
+        </ol>
 
-      <main className="min-w-0 flex-1" data-testid="main-content" role="main">
-        <PostComposer />
-
-        <div className="mt-4">
-          <Tabs defaultValue="hot" onValueChange={(value) => setActiveTab(value as FeedTab)}>
-            <TabsList className="mb-4 border border-border bg-muted/50">
-              <TabsTrigger value="hot" className="gap-1.5 data-active:text-[#3B82F6]">
-                <Flame className="size-3.5" /> Hot
-              </TabsTrigger>
-              <TabsTrigger value="new" className="gap-1.5 data-active:text-[#3B82F6]">
-                <Clock className="size-3.5" /> New
-              </TabsTrigger>
-              <TabsTrigger value="following" className="gap-1.5 data-active:text-[#3B82F6]">
-                <Users className="size-3.5" /> Following
-              </TabsTrigger>
-              <TabsTrigger value="trending" className="gap-1.5 data-active:text-[#3B82F6]">
-                <TrendingUp className="size-3.5" /> Trending
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="hot">
-              <FeedList posts={filteredPosts} isLoading={posts.length === 0} />
-            </TabsContent>
-            <TabsContent value="new">
-              <FeedList posts={filteredPosts} isLoading={posts.length === 0} />
-            </TabsContent>
-            <TabsContent value="following">
-              <FeedList posts={filteredPosts} isLoading={posts.length === 0} />
-            </TabsContent>
-            <TabsContent value="trending">
-              <FeedList posts={filteredPosts} isLoading={posts.length === 0} />
-            </TabsContent>
-          </Tabs>
+        <div className="flex gap-4 items-center flex-col sm:flex-row">
+          <a
+            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
+            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Image
+              className="dark:invert"
+              src="/vercel.svg"
+              alt="Vercel logomark"
+              width={20}
+              height={20}
+            />
+            Deploy now
+          </a>
+          <a
+            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
+            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Read our docs
+          </a>
         </div>
       </main>
-
-      <aside className="hidden w-72 shrink-0 xl:block" data-testid="right-sidebar" aria-label="Trending and suggestions">
-        <div className="sticky top-20 flex flex-col gap-4">
-          <div className="glass rounded-xl p-4" data-testid="trending-tags-panel">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              🔥 Trending Tags
-            </h3>
-            <div className="flex flex-wrap gap-1.5">
-              {tagStats.slice(0, 10).map(({ tag }) => (
-                <Link key={tag} href={`/search?q=${encodeURIComponent(tag)}`}>
-                  <Badge
-                    variant="secondary"
-                    className="cursor-pointer text-[11px] transition-colors hover:bg-[#3B82F6]/10 hover:text-[#3B82F6]"
-                  >
-                    #{tag}
-                  </Badge>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          <div className="glass rounded-xl p-4" data-testid="upcoming-events-panel">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              📅 Upcoming Events
-            </h3>
-            <div className="space-y-3">
-              {upcomingEvents.length === 0 && (
-                <p className="text-xs text-muted-foreground">No upcoming events yet.</p>
-              )}
-              {upcomingEvents.map((event) => (
-                <div key={event._id} className="group">
-                  <div className="flex items-start gap-2">
-                    <div className="flex shrink-0 flex-col items-center justify-center rounded-md bg-[#3B82F6]/10 px-2 py-1 text-center">
-                      <Calendar className="mb-0.5 size-3 text-[#3B82F6]" />
-                      <span className="text-[10px] font-medium text-[#3B82F6]">
-                        {formatEventDate(event.startTime)}
-                      </span>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-medium leading-tight transition-colors group-hover:text-[#3B82F6]">
-                        {event.title}
-                      </p>
-                      <p className="text-[10px] capitalize text-muted-foreground">{event.type}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="glass rounded-xl p-4" data-testid="who-to-follow-panel">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              👥 Who to Follow
-            </h3>
-            <div className="space-y-3">
-              {suggestedUsers.length === 0 && (
-                <p className="text-xs text-muted-foreground">More members will appear here as they join.</p>
-              )}
-              {suggestedUsers.map((user) => (
-                <div key={user._id} className="flex items-center gap-2.5">
-                  <UserAvatar src={user.avatar} name={user.name} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-medium">{user.name}</p>
-                    <p className="truncate text-[10px] text-muted-foreground">@{user.username}</p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    className={`h-6 shrink-0 gap-1 border-border text-[10px] hover:bg-[#3B82F6]/10 hover:text-[#3B82F6] ${
-                      followedUserIds.includes(user._id) ? "bg-[#3B82F6]/10 text-[#3B82F6]" : ""
-                    }`}
-                    onClick={() => {
-                      if (!isSignedIn) {
-                        toast.error("Sign in required", {
-                          description: "You need to sign in to follow users.",
-                          action: { label: "Sign In", onClick: signIn },
-                        });
-                        return;
-                      }
-                      void toggleFollow({ targetId: user._id, targetType: "user" });
-                    }}
-                  >
-                    {followedUserIds.includes(user._id) ? (
-                      <><UserCheck className="size-3" />Following</>
-                    ) : (
-                      <><UserPlus className="size-3" />Follow</>
-                    )}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </aside>
+      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
+        <a
+          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
+          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Image
+            aria-hidden
+            src="/file.svg"
+            alt="File icon"
+            width={16}
+            height={16}
+          />
+          Learn
+        </a>
+        <a
+          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
+          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Image
+            aria-hidden
+            src="/window.svg"
+            alt="Window icon"
+            width={16}
+            height={16}
+          />
+          Examples
+        </a>
+        <a
+          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
+          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Image
+            aria-hidden
+            src="/globe.svg"
+            alt="Globe icon"
+            width={16}
+            height={16}
+          />
+          Go to nextjs.org →
+        </a>
+      </footer>
     </div>
   );
 }
