@@ -37,13 +37,13 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold text-sm">
+        <div className="flex items-center gap-2.5 px-2 py-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground text-background font-semibold text-xs tracking-tight">
             GW
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold">GetWired</span>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-sm font-semibold tracking-tight">GetWired</span>
+            <span className="text-[11px] text-muted-foreground leading-none">
               Growth Intelligence
             </span>
           </div>
@@ -51,7 +51,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[11px] uppercase tracking-widest text-muted-foreground/70 font-medium">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => {

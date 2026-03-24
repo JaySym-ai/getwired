@@ -57,11 +57,11 @@ export default function ProjectOverviewPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 max-w-6xl">
       <div className="flex items-center justify-between">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">{project.name}</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-semibold tracking-tight">{project.name}</h1>
             <Badge
               variant={
                 project.status === "ready"
@@ -70,6 +70,7 @@ export default function ProjectOverviewPage() {
                     ? "secondary"
                     : "destructive"
               }
+              className="text-[10px]"
             >
               {project.status}
             </Badge>
@@ -78,7 +79,7 @@ export default function ProjectOverviewPage() {
             href={project.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-muted-foreground hover:underline flex items-center gap-1"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 mt-1"
           >
             {project.url}
             <ExternalLink className="h-3 w-3" />
@@ -87,70 +88,70 @@ export default function ProjectOverviewPage() {
       </div>
 
       {project.status === "scanning" && (
-        <Card>
+        <Card className="bg-card/50 border-border/50">
           <CardContent className="flex items-center gap-3 py-6">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <p>Scanning website and extracting keywords...</p>
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <p className="text-sm">Scanning website and extracting keywords...</p>
           </CardContent>
         </Card>
       )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="bg-card/50 backdrop-blur-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Keywords Tracked</CardTitle>
-            <Key className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Keywords Tracked</CardTitle>
+            <Key className="h-4 w-4 text-muted-foreground/60" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{trackedKeywords.length}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-3xl font-semibold tracking-tight">{trackedKeywords.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">
               {keywords?.length ?? 0} total extracted
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card/50 backdrop-blur-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Difficulty</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Avg Difficulty</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground/60" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-semibold tracking-tight">
               {avgDifficulty != null ? `${avgDifficulty}/100` : "—"}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card/50 backdrop-blur-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">GEO Visibility</CardTitle>
-            <Bot className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">GEO Visibility</CardTitle>
+            <Bot className="h-4 w-4 text-muted-foreground/60" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-semibold tracking-tight">
               {avgGeo != null ? `${avgGeo}%` : "—"}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-card/50 backdrop-blur-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Competitors</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Competitors</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground/60" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{competitors?.length ?? 0}</div>
+            <div className="text-3xl font-semibold tracking-tight">{competitors?.length ?? 0}</div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         {subNav.map((item) => (
           <Link key={item.href} href={item.href}>
-            <Card className="hover:border-primary/50 transition-colors cursor-pointer">
+            <Card className="bg-card/30 hover:bg-card/60 transition-all duration-200 cursor-pointer group">
               <CardContent className="flex items-center gap-3 py-4">
-                <item.icon className="h-5 w-5 text-muted-foreground" />
-                <span className="font-medium">{item.label}</span>
+                <item.icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                <span className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">{item.label}</span>
               </CardContent>
             </Card>
           </Link>

@@ -8,10 +8,10 @@ export default function SettingsPage() {
   const { user } = useUser();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 max-w-6xl">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Manage your account and preferences
         </p>
       </div>
@@ -35,33 +35,6 @@ export default function SettingsPage() {
                 {user?.primaryEmailAddress?.emailAddress ?? "—"}
               </span>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>API Integrations</CardTitle>
-            <CardDescription>
-              External service connections (configured in Convex dashboard)
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {[
-              { name: "OpenRouter", description: "AI agent & response drafting (via OpenRouter.ai)" },
-              { name: "Reddit API", description: "Reddit post discovery" },
-              { name: "SerpApi", description: "Google Trends data" },
-              { name: "DataForSEO", description: "SEO metrics & competitor data" },
-            ].map((integration) => (
-              <div key={integration.name} className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">{integration.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {integration.description}
-                  </p>
-                </div>
-                <Badge variant="secondary">Configure in Convex</Badge>
-              </div>
-            ))}
           </CardContent>
         </Card>
 

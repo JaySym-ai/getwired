@@ -9,6 +9,7 @@ import { api } from "@/convex/_generated/api";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { AppSidebar } from "@/components/app-sidebar";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function DashboardLayout({
   children,
@@ -57,11 +58,14 @@ export default function DashboardLayout({
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 !h-4" />
+        <header className="flex h-12 shrink-0 items-center justify-between border-b border-border/50 px-6">
+          <div className="flex items-center gap-2">
+            <SidebarTrigger className="-ml-1 text-muted-foreground hover:text-foreground transition-colors" />
+            <Separator orientation="vertical" className="mr-2 !h-4 bg-border/50" />
+          </div>
+          <ThemeToggle />
         </header>
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main className="flex-1 p-6 md:p-8 lg:p-10">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

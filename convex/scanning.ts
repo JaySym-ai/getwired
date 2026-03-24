@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
 import * as cheerio from "cheerio";
 
 // Common English stop words to filter out
@@ -81,52 +82,68 @@ function extractKeywords(text: string): { term: string; score: number }[] {
     .slice(0, 25);
 }
 
+async function performScan(
+  ctx: { runMutation: (fn: any, args: any) => Promise<any> },
+  projectId: Id<"projects">,
+  url: string
+) {
+  try {
+    // Fetch HTML
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (compatible; GetWired/1.0; +https://getwired.app)",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ${url}: ${response.status}`);
+    }
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+
+    // Extract text content
+    const text = extractText($);
+
+    // Extract keywords using TF-IDF-like scoring
+    const keywords = extractKeywords(text);
+
+    // Save keywords
+    await ctx.runMutation(internal.keywords.insertBulk, {
+      projectId,
+      keywords: keywords.map((k) => ({
+        keyword: k.term,
+        source: "extracted" as const,
+      })),
+    });
+
+    // Update project status
+    await ctx.runMutation(internal.projects.updateStatus, {
+      projectId,
+      status: "ready",
+    });
+  } catch (error) {
+    console.error("Scan failed:", error);
+    await ctx.runMutation(internal.projects.updateStatus, {
+      projectId,
+      status: "error",
+    });
+  }
+}
+
 export const scanWebsite = action({
   args: { projectId: v.id("projects"), url: v.string() },
   handler: async (ctx, { projectId, url }) => {
-    try {
-      // Fetch HTML
-      const response = await fetch(url, {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; GetWired/1.0; +https://getwired.app)",
-        },
-      });
+    await performScan(ctx, projectId, url);
+  },
+});
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch ${url}: ${response.status}`);
-      }
-
-      const html = await response.text();
-      const $ = cheerio.load(html);
-
-      // Extract text content
-      const text = extractText($);
-
-      // Extract keywords using TF-IDF-like scoring
-      const keywords = extractKeywords(text);
-
-      // Save keywords
-      await ctx.runMutation(internal.keywords.insertBulk, {
-        projectId,
-        keywords: keywords.map((k) => ({
-          keyword: k.term,
-          source: "extracted" as const,
-        })),
-      });
-
-      // Update project status
-      await ctx.runMutation(internal.projects.updateStatus, {
-        projectId,
-        status: "ready",
-      });
-    } catch (error) {
-      console.error("Scan failed:", error);
-      await ctx.runMutation(internal.projects.updateStatus, {
-        projectId,
-        status: "error",
-      });
-    }
+// Internal version that can be scheduled from mutations
+export const scanWebsiteInternal = internalAction({
+  args: { projectId: v.id("projects"), url: v.string() },
+  handler: async (ctx, { projectId, url }) => {
+    await performScan(ctx, projectId, url);
   },
 });
 

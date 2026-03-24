@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query, internalMutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { getAuthenticatedUser } from "./helpers";
 
 export const create = mutation({
@@ -18,6 +19,13 @@ export const create = mutation({
       status: "scanning",
       createdAt: Date.now(),
     });
+
+    // Schedule the website scan to run immediately after this mutation commits
+    await ctx.scheduler.runAfter(0, internal.scanning.scanWebsiteInternal, {
+      projectId,
+      url: args.url,
+    });
+
     return projectId;
   },
 });
