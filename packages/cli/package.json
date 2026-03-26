@@ -1,0 +1,40 @@
+{
+  "name": "getwired",
+  "version": "0.1.0",
+  "description": "AI-powered testing CLI that mimics a human tester",
+  "type": "module",
+  "bin": {
+    "getwired": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsx watch src/cli.tsx",
+    "build": "tsup",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "testing",
+    "cli",
+    "ai",
+    "regression",
+    "tui"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "ink": "^6.8.0",
+    "react": "^19.0.0",
+    "commander": "^13.0.0",
+    "chalk": "^5.4.0",
+    "figures": "^6.1.0",
+    "nanoid": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.0",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.0"
+  }
+}
