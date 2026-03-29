@@ -38,7 +38,7 @@ export class OpenCodeProvider extends TestingProvider {
   async *stream(context: TestContext, messages: ProviderMessage[]): AsyncGenerator<StreamChunk> {
     const prompt = messages.map((m) => m.content).join("\n\n");
     const proc = spawn("opencode", ["run", prompt], {
-      cwd: context.projectPath,
+      cwd: context.reportDir,
       stdio: ["pipe", "pipe", "pipe"],
     });
 

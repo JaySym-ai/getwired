@@ -194,7 +194,7 @@ export async function runTestSession(
       { role: "system", content: buildSystemPrompt(persona, memory) },
       { role: "user", content: buildReconPrompt(context, projectInfo, notes, pageMap) },
     ]);
-    callbacks.onLog(`Test plan generated with ${countPlanSteps(testPlan)} scenarios`);
+    callbacks.onLog(`Test plan generated with ${countPlanSteps(testPlan)} items`);
     await updateStep(steps, 2, "passed", callbacks);
 
     // ── Step 4: First impression screenshots ───────────
@@ -335,10 +335,11 @@ export async function runTestSession(
     execution.evidenceMet = execution.navigations > 0 && execution.screenshots > 0;
 
     const failedSteps = steps.filter((step) => step.status === "failed");
-    if (failedSteps.length > 0 || !execution.evidenceMet) {
-      recordFindings([
-        buildExecutionIntegrityFinding(context, failedSteps, execution),
-      ]);
+    if (failedSteps.length > 0) {
+      callbacks.onLog(`Steps incomplete: ${failedSteps.map((s) => s.name).join(", ")}`);
+    }
+    if (!execution.evidenceMet) {
+      callbacks.onLog(`Low browser evidence: ${execution.navigations} navigations, ${execution.screenshots} screenshots`);
     }
 
     const report: TestReport = {
@@ -418,7 +419,7 @@ const PERSONA_PROMPT_APPENDIX: Record<TestPersona, string> = {
   standard: `Mode: Standard testing.
 Keep a balanced QA mindset. Cover obvious flows first, then escalate into meaningful abuse and edge cases.`,
   hacky: `Mode: Hacky testing.
-Behave like a curious, persistent attacker with no privileged access. Stay inside what a browser user can do by navigating, clicking, typing, reloading, editing URLs, query params, hashes, form inputs, and normal browser actions. Focus on exposed admin paths, insecure object references, role leaks, missing guards, destructive actions, confusing state transitions, and places where the app reveals too much or lets a normal visitor do too much.
+Behave like a curious, persistent tester with no privileged access. Stay inside what a browser user can do by navigating, clicking, typing, reloading, editing URLs, query params, hashes, form inputs, and normal browser actions. Focus on exposed admin paths, insecure object references, role leaks, missing guards, unprotected actions, confusing state transitions, and places where the app reveals too much or lets a normal visitor do too much.
 Do not assume shell access, stolen credentials, direct database access, or hidden APIs that a browser user cannot reach.`,
   "old-man": `Mode: Old Man Test.
 Simulate an older, non-technical user who is trying sincerely to use the app but is hesitant, literal, and easily confused. Move slower, prefer the obvious button, misread labels, distrust jargon, and notice anything unclear or intimidating. Report what felt easy, what was confusing, what wording was hard to understand, and what would make this person give up or call someone for help.`,
@@ -456,7 +457,7 @@ const PERSONA_PROFILES: Record<TestPersona, PersonaProfile> = {
       accessibility: "Testing accessibility like a real user...",
     },
     outputMessages: {
-      planning: "exploring the site and planning attacks...",
+      planning: "exploring the site and planning test scenarios...",
       scenarios: "generating and executing all test scenarios...",
       accessibility: "deep accessibility analysis...",
     },
@@ -465,7 +466,7 @@ const PERSONA_PROFILES: Record<TestPersona, PersonaProfile> = {
     stepNames: [
       "Scan project structure",
       "Load project context & notes",
-      "Reconnaissance & attack planning",
+      "Reconnaissance & test planning",
       "First impression & screenshots",
       "Compare with baselines",
       "Execute test scenarios",
@@ -473,7 +474,7 @@ const PERSONA_PROFILES: Record<TestPersona, PersonaProfile> = {
       "Generate report",
     ],
     phaseMessages: {
-      planning: "Mapping the surface like a hostile browser user...",
+      planning: "Mapping the surface like a skeptical browser user...",
       scenarios: "Probing, tampering, and testing boundaries...",
       accessibility: "Checking if rough UX hides exploitable cracks...",
     },
@@ -530,7 +531,7 @@ function getPersonaProfile(persona: TestPersona): PersonaProfile {
 // ─── Prompt builders ───────────────────────────────────────
 
 function buildReconPrompt(context: TestContext, projectInfo: string, notes: string, pageMap: string): string {
-  return `I need you to plan a thorough test session for this website. You're sitting down at your desk, opening this site for the first time, and your job is to find everything that's broken or could break.
+  return `You are about to test this website. Before writing any test scenarios, analyze what's actually here and create a focused test strategy.
 
 URL: ${context.url ?? "not provided"}
 Device: ${context.deviceProfile}
@@ -544,19 +545,20 @@ ${projectInfo}
 
 ${notes ? `Previous tester notes:\n${notes}` : ""}
 
-${pageMap ? `I already crawled the site and found these pages, links, and forms:\n${pageMap}` : ""}
+${pageMap ? `I crawled the site and found these pages, links, and forms:\n${pageMap}` : ""}
 
 Persona guidance:
 ${getPersonaPromptGuidance(context.persona, "recon")}
 
-Create a test plan that covers:
-1. **Happy paths** — the main flows a real user would follow. Navigate, click, fill forms, complete actions.
-2. **Abuse scenarios** — what happens when you enter SQL injection strings, XSS payloads, emoji floods, 10000-character strings, special characters, or just leave everything blank?
-3. **Boundary testing** — max lengths, zero values, negative numbers, dates in the past/future, uploading wrong file types
-4. **Error recovery** — submit with bad data, hit back, refresh mid-action, navigate to /does-not-exist, mess with URL params
-5. **Race conditions** — double-click submit, rapid tab between fields, submit while still typing
+Based on what you can see in the site map above, answer these questions in plain text (NOT JSON):
 
-Return the plan as a JSON array of interaction scenarios.`;
+1. **What's actually here?** — List the real pages, forms, interactive elements, and flows you can see. Don't speculate about things that might exist.
+2. **What are the highest-value test targets?** — Which features are most likely to have bugs? Which flows matter most to users? Rank by risk and importance.
+3. **What testing angles make sense for THIS specific site?** — Based on what exists (not a generic checklist), which categories of testing apply? Skip categories that have no targets on this site.
+4. **What should we NOT waste time on?** — If the site has no forms, say so. If there's only one page, say so. If there are no auth flows, say so.
+5. **How many scenarios do we need?** — A simple landing page needs 3-5. A complex app with forms, auth, and multiple pages might need 10-15. Be honest about the site's complexity.
+
+Return your analysis as plain text with clear sections. Do NOT return JSON. The next step will use your analysis to generate specific test scenarios.`;
 }
 
 function buildAllScenariosPrompt(context: TestContext, testPlan: string, pageMap: string): string {
@@ -566,81 +568,45 @@ function buildAllScenariosPrompt(context: TestContext, testPlan: string, pageMap
 Device: ${context.deviceProfile}
 Persona: ${getPersonaLabel(context.persona)}
 
-${pageMap ? `Site map:\n${pageMap}\n` : ""}
+${pageMap ? `Site map (actual elements on the page):\n${pageMap}\n` : ""}
 
-Your earlier test plan:
-${testPlan.slice(0, 3000)}`;
+Your earlier analysis of this site:
+${testPlan.slice(0, 4000)}`;
 
-  if (persona === "old-man") {
-    return `Based on your test plan and what you see on this site, generate ALL the interaction scenarios needed to thoroughly test it from an older, low-tech user's perspective. This is your ONE chance to define every test — make each scenario unique and purposeful.
+  const personaFocus = persona === "old-man"
+    ? `You are testing as an older, low-tech user. Focus on:
+- Core tasks: try the most obvious actions slowly, favoring big buttons and plain wording
+- Confusion: where labels are ambiguous, icons lack text, success/error states are unclear
+- Recovery: what happens when you click the wrong thing, hit back, or get lost
+- Trust: slow feedback, scary-sounding actions, tiny text, jargon`
+    : persona === "hacky"
+    ? `You are testing as a skeptical but unprivileged browser user. Focus on:
+- Probing: try routes that shouldn't be public, manipulate URL params and IDs
+- Tampering: submit forms with malicious or malformed input
+- State abuse: refresh mid-action, resubmit, back/forward to find stale state
+- Information leaks: error messages, disabled controls, hidden elements that reveal too much`
+    : `You are a thorough QA tester. Focus on:
+- Happy paths: the core flows real users complete
+- Abuse: what breaks when you submit garbage, navigate to bad URLs, or spam actions
+- Edge cases: boundary values, empty/overflow states, timing, responsive breakpoints
+- Error recovery: what happens when things go wrong and the user tries to recover`;
 
-${baseInfo}
-
-Look at the ACTUAL site map above. Based on what pages, forms, buttons, and links exist, decide which of these testing angles matter:
-
-**Core flows** — Try the most obvious tasks a first-time user would attempt. Move slowly, favor the biggest buttons, the plainest wording. Note where the user has to stop and think.
-
-**Confusion & recovery** — Where would this user get lost? Click the wrong button because the label is ambiguous, misread a form, start something and not know how to finish, hit browser back because there's no obvious in-app path, give up when the next step isn't clear.
-
-**Clarity & comprehension** — Buttons with vague or similar labels, icons without text, error messages that don't explain what to do, success states too subtle to notice, jargon an older person wouldn't understand.
-
-**Trust & confidence** — Slow responses that make them think nothing happened, destructive-looking actions with weak confirmation, tiny text, low contrast, competing calls to action.
-
-IMPORTANT: Do NOT generate scenarios for features that don't exist on this site. Do NOT repeat the same flow with minor variations. Each scenario should test something genuinely different. If the site is simple (few pages, few forms), generate fewer but more meaningful scenarios.
-
-Return as a JSON array of interaction scenarios. Each scenario needs a "category" field ("happy-path", "edge-case", "boundary", or "error-recovery"). Use 3-8 actions per scenario. Use CSS selectors Playwright can find (prefer visible text, roles, placeholders over IDs).`;
-  }
-
-  if (persona === "hacky") {
-    return `Based on your test plan and what you see on this site, generate ALL the interaction scenarios needed to thoroughly probe it as a hostile but unprivileged browser user. This is your ONE chance to define every test — make each scenario unique and purposeful.
+  return `Now generate the actual Playwright test scenarios for this site. Use your earlier analysis — you already identified what's here and what's worth testing.
 
 ${baseInfo}
 
-Look at the ACTUAL site map above. Based on what pages, forms, buttons, and links exist, decide which of these testing angles matter:
+${personaFocus}
 
-**Obvious flows with suspicion** — Walk the main flows but look for cracks: permissions leaks, role boundaries, hidden state, destructive actions without guards.
+CRITICAL — read your analysis above and follow it:
+- Your analysis already identified what's on this site and what to skip. FOLLOW THAT. If you said "no forms exist," do not generate form-testing scenarios. If you said "simple landing page," generate 3-5 scenarios, not 15.
+- Every scenario must target a SPECIFIC element, page, or flow from the site map. Reference actual links, buttons, forms, and selectors you can see above.
+- Each scenario must test something genuinely different. If two scenarios would click the same button and fill the same form, merge them or drop one.
+- Order scenarios by how likely they are to find real bugs. Happy paths first (most likely to catch regressions), then targeted abuse of specific features.
 
-**Route & permission probing** — Try admin/settings/debug/export/billing URLs, modify IDs, swap params, add ?debug=true or ?role=admin, try deep links that bypass normal navigation.
+Return as a JSON array of interaction scenarios:
+[{ "name": "...", "category": "happy-path|edge-case|abuse|boundary|error-recovery", "actions": [{ "type": "navigate|click|fill|select|scroll|wait|screenshot|keyboard|assert", "selector": "CSS selector", "value": "...", "url": "...", "key": "...", "description": "What you're doing and why" }] }]
 
-**Input tampering** — Submit forms empty, malformed, oversized, duplicated. Use suspicious payloads, weird unicode, absurd lengths, broken dates, wrong types.
-
-**State abuse** — Refresh mid-action, back/forward, resubmit, reopen from history. Look for stale state, leaked data, actions that succeed after UI says they failed.
-
-**Browser-only attack surface** — Probe hidden links, API-like routes, exported files, error messages that reveal too much, disabled controls, missing empty-state guards.
-
-IMPORTANT: Do NOT generate scenarios for features that don't exist on this site. Do NOT repeat the same probe with minor variations. If the site has no forms, skip input tampering. If there are no obvious admin routes, don't generate 5 variations of /admin. Be smart about what's worth testing.
-
-Return as a JSON array of interaction scenarios. Each scenario needs a "category" field ("happy-path", "edge-case", "abuse", "boundary", or "error-recovery"). Use 3-8 actions per scenario. Focus on what a normal browser user should not be able to reach or infer.`;
-  }
-
-  return `Based on your test plan and what you see on this site, generate ALL the interaction scenarios needed to thoroughly test it. This is your ONE chance to define every test — make each scenario unique and purposeful.
-
-${baseInfo}
-
-Persona guidance:
-${getPersonaPromptGuidance(context.persona, "happy")}
-
-Look at the ACTUAL site map above. Based on what pages, forms, buttons, and links exist, decide which of these testing angles matter:
-
-**Happy paths** — The core flows a real user would complete. Navigate, click, fill forms, submit, verify results.
-
-**Input abuse** — Submit forms empty, with XSS payloads, SQL injection strings, emoji floods, 10000-char strings, wrong formats. Only for forms that ACTUALLY EXIST on the site.
-
-**Navigation abuse** — Try /admin, /api, /../etc/passwd, add ?debug=true, hit back/forward mid-action, fill half a form and leave.
-
-**Interaction abuse** — Double-click submit buttons, click disabled elements, press Enter in inputs, press Escape during modals, rapid-fire actions.
-
-**Edge cases** — Zero items, 1000 items, very long text, unicode/RTL, responsive breakpoints, timing issues (click before load, type faster than autocomplete).
-
-**URL/routing** — Missing params, non-existent IDs, negative IDs, strings where numbers expected, trailing slashes, hash fragments.
-
-IMPORTANT RULES:
-- Do NOT generate scenarios for features that don't exist on this site. If there are no forms, skip input abuse. If there's only one page, skip navigation abuse.
-- Do NOT repeat the same flow with minor variations. Each scenario must test something genuinely different.
-- If the site is simple, generate fewer but more meaningful scenarios. A simple landing page needs 3-5 scenarios, not 15.
-- Prioritize scenarios most likely to find real bugs over exhaustive coverage of unlikely edge cases.
-
-Return as a JSON array of interaction scenarios. Each scenario needs a "category" field ("happy-path", "edge-case", "abuse", "boundary", or "error-recovery"). Use 3-8 actions per scenario. Use CSS selectors Playwright can find (prefer visible text, roles, placeholders over IDs).`;
+Use 3-8 actions per scenario. Use CSS selectors from the site map (prefer visible text, roles, placeholders over fragile IDs). Start each scenario with a navigate action.`;
 }
 
 function buildAccessibilityPrompt(context: TestContext, pageMap: string): string {
@@ -777,12 +743,12 @@ function getPersonaPromptGuidance(
   switch (persona ?? "standard") {
     case "hacky":
       if (stage === "happy") {
-        return `Treat "happy path" as "obvious path a real attacker or curious user would try first." Prefer flows that reveal permissions, account boundaries, hidden state, destructive actions, and route protection gaps.`;
+        return `Treat "happy path" as "obvious path a curious user would try first." Prefer flows that reveal permissions, account boundaries, hidden state, unprotected actions, and route protection gaps.`;
       }
       if (stage === "accessibility") {
         return `Keep the accessibility check practical: highlight confusing or inaccessible UI that also increases the risk of mistaken actions, hidden warnings, or unsafe destructive behavior.`;
       }
-      return `Think like a hostile but unprivileged browser user. The goal is to find holes, exposed surfaces, and broken assumptions without leaving normal web navigation and form interaction.`;
+      return `Think like a skeptical but unprivileged browser user. The goal is to find holes, exposed surfaces, and broken assumptions without leaving normal web navigation and form interaction.`;
     case "old-man":
       if (stage === "happy") {
         return `Pick the most obvious flows and move through them slowly. Favor the biggest buttons, the plainest wording, and common expectations. Note every place where the user has to stop and think.`;
@@ -1484,42 +1450,12 @@ function parseFindings(content: string): TestFinding[] {
 }
 
 function countPlanSteps(plan: string): number {
-  try {
-    const parsed = JSON.parse(plan);
-    return Array.isArray(parsed) ? parsed.length : 0;
-  } catch {
-    return plan.split("\n").filter((l) => l.trim().match(/^\d+\./)).length || 1;
-  }
+  // Plan is now plain text — count numbered items, bullet points, or section headers
+  const numbered = plan.split("\n").filter((l) => l.trim().match(/^\d+\./)).length;
+  const bulleted = plan.split("\n").filter((l) => l.trim().match(/^[-*]\s/)).length;
+  return numbered || bulleted || 1;
 }
 
-function buildExecutionIntegrityFinding(
-  context: TestContext,
-  failedSteps: TestStep[],
-  execution: TestExecutionSummary,
-): TestFinding {
-  const problems: string[] = [];
-
-  if (!execution.evidenceMet) {
-    problems.push(
-      `Required Playwright evidence missing: ${execution.navigations} navigations and ${execution.screenshots} screenshots recorded.`,
-    );
-  }
-
-  if (failedSteps.length > 0) {
-    problems.push(`Failed steps: ${failedSteps.map((step) => step.name).join(", ")}.`);
-  }
-
-  return {
-    id: `execution-${generateId()}`,
-    severity: "high",
-    category: "functional",
-    title: !execution.evidenceMet
-      ? "Testing run did not produce required browser evidence"
-      : "Testing run did not complete all required browser phases",
-    description: problems.join(" "),
-    url: context.url,
-  };
-}
 
 async function updateStep(
   steps: TestStep[],

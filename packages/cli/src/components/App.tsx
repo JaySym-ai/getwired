@@ -10,7 +10,7 @@ import { getRegressionContext } from "../git/context.js";
 import { getAvailableProviders } from "../providers/registry.js";
 import { runTestSession } from "../orchestrator/index.js";
 import { ProviderStream } from "./ProviderStream.js";
-import { readFile, readdir } from "node:fs/promises";
+import { readFile, readdir, rm, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { GetwiredSettings } from "../config/settings.js";
@@ -82,6 +82,7 @@ export function App({ mode, initProvider }: AppProps) {
   const [reportFiles, setReportFiles] = useState<string[]>([]);
   const [reportIndex, setReportIndex] = useState(0);
   const [activeReport, setActiveReport] = useState<TestReport | null>(null);
+  const [confirmClearReports, setConfirmClearReports] = useState(false);
 
   // Notes
   const [noteFiles, setNoteFiles] = useState<string[]>([]);
@@ -215,6 +216,15 @@ export function App({ mode, initProvider }: AppProps) {
     setView("report-detail");
   }
 
+  async function clearAllReports() {
+    const dir = getReportDir(process.cwd());
+    await rm(dir, { recursive: true, force: true });
+    await mkdir(dir, { recursive: true });
+    setReportFiles([]);
+    setReportIndex(0);
+    setConfirmClearReports(false);
+  }
+
   // ─── Load notes ─────────────────────────────────────
   async function loadNotes() {
     try {
@@ -323,8 +333,14 @@ export function App({ mode, initProvider }: AppProps) {
 
       // ── Reports list ──
       case "reports-list":
+        if (confirmClearReports) {
+          if (input === "y") { clearAllReports(); return; }
+          setConfirmClearReports(false);
+          return;
+        }
         if (key.escape || input === "b") { setView("dashboard"); return; }
         if (input === "q") { exit(); return; }
+        if (input === "c" && reportFiles.length > 0) { setConfirmClearReports(true); return; }
         if (key.upArrow) setReportIndex((p) => Math.max(0, p - 1));
         if (key.downArrow) setReportIndex((p) => Math.min(reportFiles.length - 1, p + 1));
         if (key.return && reportFiles[reportIndex]) loadReportDetail(reportFiles[reportIndex]);
@@ -802,11 +818,18 @@ export function App({ mode, initProvider }: AppProps) {
               </Box>
             ))}
             <Text color="greenBright" bold>└──────────────────────────────────────────────────</Text>
-            <Box marginTop={1} gap={2}>
-              <Text color="green" dimColor>[↑↓] Navigate</Text>
-              <Text color="green" dimColor>[Enter] View</Text>
-              <Text color="green" dimColor>[b] Back</Text>
-            </Box>
+            {confirmClearReports ? (
+              <Box marginTop={1}>
+                <Text color="red" bold>Delete all reports? [y] Yes / [any key] Cancel</Text>
+              </Box>
+            ) : (
+              <Box marginTop={1} gap={2}>
+                <Text color="green" dimColor>[↑↓] Navigate</Text>
+                <Text color="green" dimColor>[Enter] View</Text>
+                {reportFiles.length > 0 && <Text color="green" dimColor>[c] Clear All</Text>}
+                <Text color="green" dimColor>[b] Back</Text>
+              </Box>
+            )}
           </Box>
         </>
       )}
@@ -1037,7 +1060,7 @@ const SETTINGS_SECTIONS = [
 
 const TEST_PERSONAS: Array<{ id: TestPersona; label: string; description: string }> = [
   { id: "standard", label: "Standard Testing", description: "Balanced QA coverage across normal flows, breakage, and edge cases" },
-  { id: "hacky", label: "Hacky Testing", description: "Probe routes, parameters, and unsafe assumptions like a hostile browser user" },
+  { id: "hacky", label: "Hacky Testing", description: "Probe routes, parameters, and unsafe assumptions like a skeptical browser user" },
   { id: "old-man", label: "Old Man Test", description: "Use the app like a hesitant older non-technical person and note confusion" },
 ];
 

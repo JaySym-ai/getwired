@@ -20,7 +20,7 @@ function formatElapsed(ms: number): string {
 export function ProviderStream({
   output,
   providerName,
-  maxLines = 10,
+  maxLines = 25,
   isStreaming = true,
 }: ProviderStreamProps) {
   const [tick, setTick] = useState(0);

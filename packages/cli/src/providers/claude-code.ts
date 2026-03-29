@@ -39,7 +39,7 @@ export class ClaudeCodeProvider extends TestingProvider {
     const proc = spawn(
       "claude",
       ["--print", "--output-format", "stream-json", "-p", prompt],
-      { cwd: context.projectPath, stdio: ["pipe", "pipe", "pipe"] },
+      { cwd: context.reportDir, stdio: ["pipe", "pipe", "pipe"] },
     );
 
     // Capture the exit promise BEFORE consuming the stream to avoid a race
