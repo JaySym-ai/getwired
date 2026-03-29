@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "FAQ",
+  description:
+    "Frequently asked questions about GetWired: supported frameworks, AI provider requirements, pricing, security, CI/CD integration, and more.",
+  alternates: { canonical: "https://getwired.dev/docs/faq" },
+};
 
 const faqs = [
   {

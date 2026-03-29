@@ -28,8 +28,6 @@ type View =
   | "regression-input"
   | "regression-custom-input"
   | "regression-running"
-  | "baseline-url"
-  | "baseline-running"
   | "reports-list"
   | "report-detail"
   | "notes"
@@ -154,7 +152,7 @@ export function App({ mode, initProvider }: AppProps) {
     url: string,
     commitId?: string,
     prId?: string,
-    nextView: Extract<View, "test-running" | "regression-running" | "baseline-running"> = "test-running",
+    nextView: Extract<View, "test-running" | "regression-running"> = "test-running",
     persona: TestPersona = "standard",
   ) {
     resetTestState();
@@ -250,7 +248,7 @@ export function App({ mode, initProvider }: AppProps) {
   }
 
   // Disable input during test runs to avoid unnecessary re-renders
-  const isRunning = view === "test-running" || view === "regression-running" || view === "baseline-running";
+  const isRunning = view === "test-running" || view === "regression-running";
   const inputActive = !isRunning || !!testReport || !!testError;
 
   // ─── Input handler ──────────────────────────────────
@@ -297,7 +295,6 @@ export function App({ mode, initProvider }: AppProps) {
       // ── Test running ──
       case "test-running":
       case "regression-running":
-      case "baseline-running":
         if (testReport || testError) {
           if (key.return || key.escape || input === "b") goToDashboard();
         }
@@ -411,7 +408,6 @@ export function App({ mode, initProvider }: AppProps) {
         setRegressionContext(getRegressionContext(process.cwd()));
         setView("regression-input");
         break;
-      case "baseline": setTestUrl(""); setView("baseline-url"); break;
       case "reports": loadReportsList(); break;
       case "notes": loadNotes(); break;
       case "settings": setSettingEditing(null); setView("settings"); break;
@@ -630,26 +626,6 @@ export function App({ mode, initProvider }: AppProps) {
         </>
       )}
 
-      {/* ── Baseline: URL Input ── */}
-      {view === "baseline-url" && (
-        <>
-          <Header subtitle="Capture Baseline" />
-          <Box flexDirection="column" paddingX={2} gap={1}>
-            <Text color="greenBright" bold>◆ Enter the URL to capture baseline screenshots:</Text>
-            <TextInput
-              label="URL ▸ "
-              placeholder="https://your-site.com"
-              onSubmit={(url) => { setTestUrl(url); startTest(url, undefined, undefined, "baseline-running"); }}
-              onCancel={() => setView("dashboard")}
-            />
-            <Box marginTop={1} gap={2}>
-              <Text color="green" dimColor>[Enter] Capture</Text>
-              <Text color="green" dimColor>[Esc] Back</Text>
-            </Box>
-          </Box>
-        </>
-      )}
-
       {/* ── Regression: Mode + Input ── */}
       {view === "regression-input" && (
         <>
@@ -729,12 +705,11 @@ export function App({ mode, initProvider }: AppProps) {
         </>
       )}
 
-      {/* ── Test/Regression/Baseline Running (Split Pane) ── */}
-      {(view === "test-running" || view === "regression-running" || view === "baseline-running") && (
+      {/* ── Test/Regression Running (Split Pane) ── */}
+      {(view === "test-running" || view === "regression-running") && (
         <>
           <Header subtitle={
             view === "regression-running" ? "Regression Check" :
-            view === "baseline-running" ? "Capturing Baselines" :
             testUrl ? `${getTestPersonaLabel(activeTestPersona)} · ${testUrl}` : getTestPersonaLabel(activeTestPersona)
           } />
           <StatusBar status={statusMap[testPhase] ?? "testing"} message={testPhaseMsg} />
@@ -1081,7 +1056,6 @@ export function App({ mode, initProvider }: AppProps) {
 const MENU_ITEMS = [
   { label: "Run Tests", description: "Tell me what to test — I'll try to break it", hotkey: "t", action: "test" },
   { label: "Regression Check", description: "Test against a commit or PR", hotkey: "r", action: "regression" },
-  { label: "Capture Baseline", description: "Save baseline screenshots", hotkey: "b", action: "baseline" },
   { label: "View Reports", description: "Browse past test reports", hotkey: "v", action: "reports" },
   { label: "Project Notes", description: "View learned project context", hotkey: "n", action: "notes" },
   { label: "Settings", description: "Configure provider, devices & more", hotkey: "s", action: "settings" },

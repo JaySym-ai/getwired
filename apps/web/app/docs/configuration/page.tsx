@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Configuration",
+  description:
+    "Configure GetWired: .getwired directory structure, getwired.config.json settings, test notes, provider configuration, and project-level options.",
+  alternates: { canonical: "https://getwired.dev/docs/configuration" },
+};
 
 export default function Configuration() {
   return (

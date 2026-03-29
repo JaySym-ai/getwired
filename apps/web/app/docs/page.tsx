@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Documentation — GetWired AI Testing CLI",
+  description:
+    "Complete documentation for GetWired: installation, CLI commands, AI provider setup (Claude Code, Auggie, Codex, OpenCode), test modes, reports, and configuration.",
+  alternates: { canonical: "https://getwired.dev/docs" },
+};
 
 const CARDS = [
   { href: "/docs/getting-started", title: "GETTING-STARTED", desc: "Install, launch, and first run" },

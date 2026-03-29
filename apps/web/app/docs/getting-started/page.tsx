@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Getting Started",
+  description:
+    "Install GetWired with npx, initialize your project, configure your AI provider, and run your first AI-driven chaotic test in minutes.",
+  alternates: { canonical: "https://getwired.dev/docs/getting-started" },
+};
 
 export default function GettingStarted() {
   return (

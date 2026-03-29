@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Test Modes",
+  description:
+    "Learn about GetWired test modes: standard testing, regression testing, baseline snapshots, and scoped test runs for targeted QA.",
+  alternates: { canonical: "https://getwired.dev/docs/test-modes" },
+};
 
 export default function TestModes() {
   return (

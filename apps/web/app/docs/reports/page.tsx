@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Reports",
+  description:
+    "Understand GetWired test reports: output location, HTML report format, screenshots, bug descriptions, and regression comparison details.",
+  alternates: { canonical: "https://getwired.dev/docs/reports" },
+};
 
 export default function Reports() {
   return (

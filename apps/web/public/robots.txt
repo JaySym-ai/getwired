@@ -1,0 +1,6 @@
+# GetWired - AI-Powered Testing CLI
+User-agent: *
+Allow: /
+Disallow:
+
+Sitemap: https://getwired.dev/sitemap.xml

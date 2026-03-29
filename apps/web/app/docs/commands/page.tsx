@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "CLI Commands",
+  description:
+    "Complete reference for all GetWired CLI commands: init, test, baseline, regression, report, and their flags and usage examples.",
+  alternates: { canonical: "https://getwired.dev/docs/commands" },
+};
 
 const commands = [
   {

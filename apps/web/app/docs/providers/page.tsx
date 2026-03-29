@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "AI Providers",
+  description:
+    "Configure AI providers for GetWired testing: Claude Code by Anthropic, Auggie by Augment Code, Codex by OpenAI, and OpenCode. Compare features and setup instructions.",
+  alternates: { canonical: "https://getwired.dev/docs/providers" },
+};
 
 const providers = [
   {
