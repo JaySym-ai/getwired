@@ -1,5 +1,5 @@
 {
-  "provider": "codex",
+  "provider": "opencode",
   "auth": {},
   "testing": {
     "deviceProfile": "desktop",
