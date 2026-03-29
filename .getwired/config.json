@@ -1,6 +1,11 @@
 {
-  "provider": "opencode",
+  "provider": "claude-code",
   "auth": {},
+  "authentication": {
+    "cookies": [],
+    "localStorage": {},
+    "credentials": {}
+  },
   "testing": {
     "deviceProfile": "desktop",
     "viewports": {

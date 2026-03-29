@@ -379,7 +379,11 @@ export function App({ mode, initProvider }: AppProps) {
         if (!settingEditing) {
           if (key.upArrow) setSettingIndex((p) => Math.max(0, p - 1));
           if (key.downArrow) setSettingIndex((p) => Math.min(SETTINGS_SECTIONS.length - 1, p + 1));
-          if (key.return) { setSettingEditing(SETTINGS_SECTIONS[settingIndex].key); setSettingEditIndex(0); }
+          if (key.return) {
+            const sectionKey = SETTINGS_SECTIONS[settingIndex].key;
+            setSettingEditing(sectionKey);
+            setSettingEditIndex(getCurrentSettingIndex(sectionKey));
+          }
         } else {
           handleSettingEdit(settingEditing, input, key);
         }
@@ -413,6 +417,25 @@ export function App({ mode, initProvider }: AppProps) {
       case "settings": setSettingEditing(null); setView("settings"); break;
       case "clear-reports": setConfirmClearReports(true); setView("confirm-clear"); break;
     }
+  }
+
+  function getCurrentSettingIndex(section: string): number {
+    if (!settings) return 0;
+    if (section === "provider") {
+      const idx = providers.findIndex((p) => p.name === settings.provider);
+      return idx >= 0 ? idx : 0;
+    }
+    if (section === "device") {
+      const profiles: DeviceProfile[] = ["desktop", "mobile", "both"];
+      const idx = profiles.indexOf(settings.testing.deviceProfile);
+      return idx >= 0 ? idx : 0;
+    }
+    if (section === "reporting") {
+      const formats = ["json", "html", "markdown"];
+      const idx = formats.indexOf(settings.reporting.outputFormat);
+      return idx >= 0 ? idx : 0;
+    }
+    return 0;
   }
 
   async function handleSettingEdit(section: string, input: string, key: any) {
@@ -456,7 +479,11 @@ export function App({ mode, initProvider }: AppProps) {
         updated = { ...updated, reporting: { ...updated.reporting, outputFormat: formats[settingEditIndex] } };
       }
       setSettings(updated);
-      await saveConfig(process.cwd(), updated);
+      try {
+        await saveConfig(process.cwd(), updated);
+      } catch {
+        // Config save failed — settings still updated in memory
+      }
       setSettingSaved(true);
       setSettingEditing(null);
     }
