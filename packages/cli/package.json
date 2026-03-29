@@ -1,6 +1,6 @@
 {
   "name": "getwired",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "AI-powered CLI for visual regression and exploratory testing",
   "type": "module",
   "bin": {
@@ -41,7 +41,7 @@
     "ink": "^6.8.0",
     "react": "^19.0.0",
     "commander": "^13.0.0",
-    "canvas": "^3.1.0"
+    "@napi-rs/canvas": "^0.1.65"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
