@@ -15,7 +15,7 @@ const commands = [
     flags: [
       { flag: "--provider <provider>", desc: "AI provider to use (claude-code, auggie, codex)" },
     ],
-    example: "$ npx getwired init --provider auggie",
+    example: "$ getwired init --provider auggie",
   },
   {
     name: "getwired test",
@@ -28,7 +28,7 @@ const commands = [
       { flag: "-d, --device <profile>", desc: "Device profile: desktop, mobile, or both (default: both)" },
       { flag: "--provider <provider>", desc: "Override AI provider for this run" },
     ],
-    example: "$ npx getwired test --scope auth --device mobile",
+    example: "$ getwired test --scope auth --device mobile",
   },
   {
     name: "getwired report",
@@ -36,13 +36,13 @@ const commands = [
     flags: [
       { flag: "-i, --id <id>", desc: "View a specific report by ID" },
     ],
-    example: "$ npx getwired report --id latest",
+    example: "$ getwired report --id latest",
   },
   {
     name: "getwired dashboard",
     desc: "Open the interactive TUI dashboard. This is the default command when running getwired with no arguments. Gives you access to test runs, reports, notes, and settings.",
     flags: [],
-    example: "$ npx getwired",
+    example: "$ getwired",
   },
 ];
 

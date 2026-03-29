@@ -46,11 +46,11 @@ export default function Reports() {
         <div className="mt-4 flex flex-col gap-3">
           <div className="rounded border border-emerald-500/20 bg-black/80 px-4 py-3 font-mono text-sm text-green-400"
             style={{ boxShadow: "0 0 20px rgba(16, 185, 129, 0.06)" }}>
-            <span className="text-emerald-600">$</span> npx getwired report
+            <span className="text-emerald-600">$</span> getwired report
           </div>
           <div className="rounded border border-emerald-500/20 bg-black/80 px-4 py-3 font-mono text-sm text-green-400"
             style={{ boxShadow: "0 0 20px rgba(16, 185, 129, 0.06)" }}>
-            <span className="text-emerald-600">$</span> npx getwired report --id latest
+            <span className="text-emerald-600">$</span> getwired report --id latest
           </div>
         </div>
       </section>

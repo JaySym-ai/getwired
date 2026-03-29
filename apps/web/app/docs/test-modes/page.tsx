@@ -27,7 +27,7 @@ export default function TestModes() {
         </p>
         <div className="mt-4 rounded border border-emerald-500/20 bg-black/80 px-4 py-3 font-mono text-sm text-green-400"
           style={{ boxShadow: "0 0 20px rgba(16, 185, 129, 0.06)" }}>
-          $ npx getwired test
+          $ getwired test
         </div>
       </section>
 
@@ -39,7 +39,7 @@ export default function TestModes() {
         </p>
         <div className="mt-4 rounded border border-emerald-500/20 bg-black/80 px-4 py-3 font-mono text-sm text-green-400"
           style={{ boxShadow: "0 0 20px rgba(16, 185, 129, 0.06)" }}>
-          $ npx getwired test --scope checkout
+          $ getwired test --scope checkout
         </div>
       </section>
 
@@ -51,7 +51,7 @@ export default function TestModes() {
         </p>
         <div className="mt-4 rounded border border-emerald-500/20 bg-black/80 px-4 py-3 font-mono text-sm text-green-400"
           style={{ boxShadow: "0 0 20px rgba(16, 185, 129, 0.06)" }}>
-          $ npx getwired test --commit HEAD~1
+          $ getwired test --commit HEAD~1
         </div>
       </section>
 
@@ -63,7 +63,7 @@ export default function TestModes() {
         </p>
         <div className="mt-4 rounded border border-emerald-500/20 bg-black/80 px-4 py-3 font-mono text-sm text-green-400"
           style={{ boxShadow: "0 0 20px rgba(16, 185, 129, 0.06)" }}>
-          $ npx getwired test --pr 42
+          $ getwired test --pr 42
         </div>
       </section>
 
@@ -75,7 +75,7 @@ export default function TestModes() {
         </p>
         <div className="mt-4 rounded border border-emerald-500/20 bg-black/80 px-4 py-3 font-mono text-sm text-green-400"
           style={{ boxShadow: "0 0 20px rgba(16, 185, 129, 0.06)" }}>
-          $ npx getwired test --device mobile
+          $ getwired test --device mobile
         </div>
       </section>
 
