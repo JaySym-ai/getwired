@@ -1,6 +1,6 @@
 {
   "name": "getwired",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "AI-powered CLI for visual regression and exploratory testing",
   "type": "module",
   "bin": {
