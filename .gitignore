@@ -10,6 +10,7 @@ node_modules/
 
 # testing
 coverage/
+.getwired/
 
 # next.js
 .next/

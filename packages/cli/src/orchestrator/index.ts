@@ -262,120 +262,46 @@ export async function runTestSession(
       captures.length > 0 ? undefined : "Cannot compare baselines without current screenshots",
     );
 
-    // ── Step 6: Walk the happy paths (real Playwright interactions) ──
-    callbacks.onPhaseChange("testing", personaProfile.phaseMessages.happyPath);
+    // ── Step 6: Generate & execute ALL test scenarios in one pass ──
+    callbacks.onPhaseChange("testing", personaProfile.phaseMessages.scenarios);
     await updateStep(steps, 5, "running", callbacks, undefined, `Using ${browserSession.label}`);
-    out(`\n> ${settings.provider}: ${personaProfile.outputMessages.happyPath}\n\n`);
+    out(`\n> ${settings.provider}: ${personaProfile.outputMessages.scenarios}\n\n`);
 
-    const happyPathResult = await streamAnalyze(context, [
+    const allScenariosResult = await streamAnalyze(context, [
       { role: "system", content: buildSystemPrompt(persona, memory) },
-      { role: "user", content: buildHappyPathPrompt(context, testPlan, pageMap) },
+      { role: "user", content: buildAllScenariosPrompt(context, testPlan, pageMap) },
     ]);
 
-    const happyScenarios = parseScenarios(happyPathResult);
-    execution.scenariosPlanned += happyScenarios.length;
-    let happyExecution: ScenarioExecutionResult | null = null;
-    if (happyScenarios.length > 0) {
-      out(`\n> Executing ${happyScenarios.length} happy-path scenarios in browser...\n`);
-      happyExecution = await executeScenarios(
-        happyScenarios, context, settings, out,
+    const allScenarios = parseScenarios(allScenariosResult);
+    execution.scenariosPlanned += allScenarios.length;
+    let scenarioExecution: ScenarioExecutionResult | null = null;
+    if (allScenarios.length > 0) {
+      out(`\n> Executing ${allScenarios.length} scenarios in browser...\n`);
+      scenarioExecution = await executeScenarios(
+        allScenarios, context, settings, out,
       );
-      execution.browserSessions += happyExecution.browserSessions;
-      execution.navigations += happyExecution.navigations;
-      execution.screenshots += happyExecution.screenshots;
-      execution.scenariosExecuted += happyExecution.executedScenarios;
-      recordFindings(happyExecution.findings);
+      execution.browserSessions += scenarioExecution.browserSessions;
+      execution.navigations += scenarioExecution.navigations;
+      execution.screenshots += scenarioExecution.screenshots;
+      execution.scenariosExecuted += scenarioExecution.executedScenarios;
+      recordFindings(scenarioExecution.findings);
     }
     await updateStep(
       steps,
       5,
-      happyExecution && happyExecution.executedScenarios > 0 && !happyExecution.error ? "passed" : "failed",
+      scenarioExecution && scenarioExecution.executedScenarios > 0 && !scenarioExecution.error ? "passed" : "failed",
       callbacks,
       undefined,
-      happyExecution && happyExecution.executedScenarios > 0 && !happyExecution.error
-        ? `Executed ${happyExecution.executedScenarios} scenario${happyExecution.executedScenarios === 1 ? "" : "s"} with ${happyExecution.navigations} navigations and ${happyExecution.screenshots} screenshots`
-        : happyScenarios.length === 0
-          ? "Provider returned no executable happy-path browser scenarios"
-          : happyExecution?.error ?? "Playwright did not complete a happy-path scenario",
+      scenarioExecution && scenarioExecution.executedScenarios > 0 && !scenarioExecution.error
+        ? `Executed ${scenarioExecution.executedScenarios} scenario${scenarioExecution.executedScenarios === 1 ? "" : "s"} with ${scenarioExecution.navigations} navigations and ${scenarioExecution.screenshots} screenshots`
+        : allScenarios.length === 0
+          ? "Provider returned no executable browser scenarios"
+          : scenarioExecution?.error ?? "Playwright did not complete any scenario",
     );
 
-    // ── Step 7: Try to break things (adversarial testing) ──
-    callbacks.onPhaseChange("breaking", personaProfile.phaseMessages.breaking);
-    await updateStep(steps, 6, "running", callbacks, undefined, `Using ${browserSession.label}`);
-    out(`\n> ${settings.provider}: ${personaProfile.outputMessages.breaking}\n\n`);
-
-    const breakResult = await streamAnalyze(context, [
-      { role: "system", content: buildSystemPrompt(persona, memory) },
-      { role: "user", content: buildBreakItPrompt(context, testPlan, pageMap) },
-    ]);
-
-    const breakScenarios = parseScenarios(breakResult);
-    execution.scenariosPlanned += breakScenarios.length;
-    let breakExecution: ScenarioExecutionResult | null = null;
-    if (breakScenarios.length > 0) {
-      out(`\n> Executing ${breakScenarios.length} adversarial scenarios...\n`);
-      breakExecution = await executeScenarios(
-        breakScenarios, context, settings, out,
-      );
-      execution.browserSessions += breakExecution.browserSessions;
-      execution.navigations += breakExecution.navigations;
-      execution.screenshots += breakExecution.screenshots;
-      execution.scenariosExecuted += breakExecution.executedScenarios;
-      recordFindings(breakExecution.findings);
-    }
-    await updateStep(
-      steps,
-      6,
-      breakExecution && breakExecution.executedScenarios > 0 && !breakExecution.error ? "passed" : "failed",
-      callbacks,
-      undefined,
-      breakExecution && breakExecution.executedScenarios > 0 && !breakExecution.error
-        ? `Executed ${breakExecution.executedScenarios} scenario${breakExecution.executedScenarios === 1 ? "" : "s"} with ${breakExecution.navigations} navigations and ${breakExecution.screenshots} screenshots`
-        : breakScenarios.length === 0
-          ? "Provider returned no executable recovery/adversarial browser scenarios"
-          : breakExecution?.error ?? "Playwright did not complete an adversarial scenario",
-    );
-
-    // ── Step 8: Edge cases & boundary testing ──────────
-    callbacks.onPhaseChange("breaking", personaProfile.phaseMessages.edgeCases);
-    await updateStep(steps, 7, "running", callbacks, undefined, `Using ${browserSession.label}`);
-    out(`\n> ${settings.provider}: ${personaProfile.outputMessages.edgeCases}\n\n`);
-
-    const edgeResult = await streamAnalyze(context, [
-      { role: "system", content: buildSystemPrompt(persona, memory) },
-      { role: "user", content: buildEdgeCasePrompt(context, testPlan, pageMap) },
-    ]);
-
-    const edgeScenarios = parseScenarios(edgeResult);
-    execution.scenariosPlanned += edgeScenarios.length;
-    let edgeExecution: ScenarioExecutionResult | null = null;
-    if (edgeScenarios.length > 0) {
-      out(`\n> Executing ${edgeScenarios.length} edge-case scenarios...\n`);
-      edgeExecution = await executeScenarios(
-        edgeScenarios, context, settings, out,
-      );
-      execution.browserSessions += edgeExecution.browserSessions;
-      execution.navigations += edgeExecution.navigations;
-      execution.screenshots += edgeExecution.screenshots;
-      execution.scenariosExecuted += edgeExecution.executedScenarios;
-      recordFindings(edgeExecution.findings);
-    }
-    await updateStep(
-      steps,
-      7,
-      edgeExecution && edgeExecution.executedScenarios > 0 && !edgeExecution.error ? "passed" : "failed",
-      callbacks,
-      undefined,
-      edgeExecution && edgeExecution.executedScenarios > 0 && !edgeExecution.error
-        ? `Executed ${edgeExecution.executedScenarios} scenario${edgeExecution.executedScenarios === 1 ? "" : "s"} with ${edgeExecution.navigations} navigations and ${edgeExecution.screenshots} screenshots`
-        : edgeScenarios.length === 0
-          ? "Provider returned no executable edge-case browser scenarios"
-          : edgeExecution?.error ?? "Playwright did not complete an edge-case scenario",
-    );
-
-    // ── Step 9: Accessibility & keyboard-only ────────────
+    // ── Step 7: Accessibility & keyboard-only ────────────
     callbacks.onPhaseChange("testing", personaProfile.phaseMessages.accessibility);
-    await updateStep(steps, 8, "running", callbacks, undefined, `Using ${browserSession.label}`);
+    await updateStep(steps, 6, "running", callbacks, undefined, `Using ${browserSession.label}`);
 
     out(`\n> Running real keyboard-only navigation test...\n`);
     const a11yResult = await testAccessibility(context, settings, out);
@@ -393,7 +319,7 @@ export async function runTestSession(
 
     await updateStep(
       steps,
-      8,
+      6,
       a11yResult.completed && !a11yResult.error ? "passed" : "failed",
       callbacks,
       undefined,
@@ -402,9 +328,9 @@ export async function runTestSession(
         : a11yResult.error ?? "Accessibility browser check did not complete",
     );
 
-    // ── Step 10: Generate report ────────────────────────
+    // ── Step 8: Generate report ────────────────────────
     callbacks.onPhaseChange("reporting", "Generating report...");
-    await updateStep(steps, 9, "running", callbacks);
+    await updateStep(steps, 7, "running", callbacks);
 
     execution.evidenceMet = execution.navigations > 0 && execution.screenshots > 0;
 
@@ -452,7 +378,7 @@ export async function runTestSession(
       out(`> Memory update skipped (non-critical)\n`);
     }
 
-    await updateStep(steps, 9, "passed", callbacks);
+    await updateStep(steps, 7, "passed", callbacks);
 
     callbacks.onPhaseChange("done", "Testing complete!");
     return report;
@@ -480,6 +406,8 @@ Your testing personality:
 
 You are NOT a scanner or automated tool. You are a person sitting at a computer, using the app, and reporting what feels wrong.
 
+CRITICAL RULE: You are READ-ONLY. You must NEVER create, modify, delete, or write to any project file. Do not use file editing tools, do not create files, do not run commands that modify the filesystem. Your only job is to observe, test, and report findings. The only files GetWired writes are inside the .getwired/ folder — and that is handled by the tool itself, not by you.
+
 When you return findings, use this JSON format:
 [{ "id": "unique-id", "severity": "critical|high|medium|low|info", "category": "functional|ui-regression|accessibility|performance|security|console-error", "title": "Short description", "description": "Detailed explanation of what happened and why it matters", "steps": ["Step 1", "Step 2"], "url": "page where it happened", "device": "desktop|mobile" }]
 
@@ -500,16 +428,12 @@ interface PersonaProfile {
   stepNames: string[];
   phaseMessages: {
     planning: string;
-    happyPath: string;
-    breaking: string;
-    edgeCases: string;
+    scenarios: string;
     accessibility: string;
   };
   outputMessages: {
     planning: string;
-    happyPath: string;
-    breaking: string;
-    edgeCases: string;
+    scenarios: string;
     accessibility: string;
   };
 }
@@ -522,24 +446,18 @@ const PERSONA_PROFILES: Record<TestPersona, PersonaProfile> = {
       "Reconnaissance & test planning",
       "First impression & screenshots",
       "Compare with baselines",
-      "Walk the happy paths",
-      "Try to break things",
-      "Poke at edge cases & boundaries",
+      "Execute test scenarios",
       "Accessibility & keyboard-only",
       "Generate report",
     ],
     phaseMessages: {
       planning: "Exploring the site like a human tester...",
-      happyPath: "Walking the happy paths...",
-      breaking: "Trying to break things...",
-      edgeCases: "Poking at edge cases...",
+      scenarios: "Running AI-planned test scenarios...",
       accessibility: "Testing accessibility like a real user...",
     },
     outputMessages: {
       planning: "exploring the site and planning attacks...",
-      happyPath: "planning happy-path walkthroughs...",
-      breaking: "thinking of ways to break this...",
-      edgeCases: "finding edge cases and boundary conditions...",
+      scenarios: "generating and executing all test scenarios...",
       accessibility: "deep accessibility analysis...",
     },
   },
@@ -550,24 +468,18 @@ const PERSONA_PROFILES: Record<TestPersona, PersonaProfile> = {
       "Reconnaissance & attack planning",
       "First impression & screenshots",
       "Compare with baselines",
-      "Probe the obvious flows",
-      "Try to bypass and tamper",
-      "Poke routes, params & boundaries",
+      "Execute test scenarios",
       "Accessibility & keyboard-only",
       "Generate report",
     ],
     phaseMessages: {
       planning: "Mapping the surface like a hostile browser user...",
-      happyPath: "Probing the obvious flows...",
-      breaking: "Trying to bypass and tamper...",
-      edgeCases: "Poking routes, params, and edge cases...",
+      scenarios: "Probing, tampering, and testing boundaries...",
       accessibility: "Checking if rough UX hides exploitable cracks...",
     },
     outputMessages: {
       planning: "mapping routes, forms, and weak spots...",
-      happyPath: "probing the obvious flows for cracks...",
-      breaking: "trying bypasses, tampering, and unsafe navigation...",
-      edgeCases: "pushing params, routes, and edge conditions...",
+      scenarios: "probing flows, trying bypasses, and pushing boundaries...",
       accessibility: "checking whether rough UX hides risky behavior...",
     },
   },
@@ -578,24 +490,18 @@ const PERSONA_PROFILES: Record<TestPersona, PersonaProfile> = {
       "First-time user orientation",
       "First impression & screenshots",
       "Compare with baselines",
-      "Try the obvious tasks slowly",
-      "Get confused and recover",
-      "Misread labels & navigation",
+      "Execute test scenarios",
       "Accessibility & readability",
       "Generate report",
     ],
     phaseMessages: {
       planning: "Approaching the site like a hesitant first-time user...",
-      happyPath: "Trying the obvious tasks slowly...",
-      breaking: "Getting confused and trying to recover...",
-      edgeCases: "Misreading labels, navigation, and wording...",
+      scenarios: "Trying tasks, getting confused, and recovering...",
       accessibility: "Checking readability and comfort for a low-tech user...",
     },
     outputMessages: {
       planning: "looking around carefully and trying to understand the site...",
-      happyPath: "trying the obvious tasks one slow step at a time...",
-      breaking: "getting confused, hesitating, and seeing what goes wrong...",
-      edgeCases: "misreading labels and testing what feels unclear...",
+      scenarios: "trying tasks slowly, getting confused, and testing clarity...",
       accessibility: "checking readability, clarity, and comfort...",
     },
   },
@@ -653,213 +559,88 @@ Create a test plan that covers:
 Return the plan as a JSON array of interaction scenarios.`;
 }
 
-function buildHappyPathPrompt(context: TestContext, testPlan: string, pageMap: string): string {
-  return `Based on your test plan, generate the happy-path interaction scenarios — the core flows a real user would complete.
+function buildAllScenariosPrompt(context: TestContext, testPlan: string, pageMap: string): string {
+  const persona = context.persona ?? "standard";
 
-URL: ${context.url}
+  const baseInfo = `URL: ${context.url}
 Device: ${context.deviceProfile}
 Persona: ${getPersonaLabel(context.persona)}
 
 ${pageMap ? `Site map:\n${pageMap}\n` : ""}
 
 Your earlier test plan:
-${testPlan.slice(0, 3000)}
+${testPlan.slice(0, 3000)}`;
+
+  if (persona === "old-man") {
+    return `Based on your test plan and what you see on this site, generate ALL the interaction scenarios needed to thoroughly test it from an older, low-tech user's perspective. This is your ONE chance to define every test — make each scenario unique and purposeful.
+
+${baseInfo}
+
+Look at the ACTUAL site map above. Based on what pages, forms, buttons, and links exist, decide which of these testing angles matter:
+
+**Core flows** — Try the most obvious tasks a first-time user would attempt. Move slowly, favor the biggest buttons, the plainest wording. Note where the user has to stop and think.
+
+**Confusion & recovery** — Where would this user get lost? Click the wrong button because the label is ambiguous, misread a form, start something and not know how to finish, hit browser back because there's no obvious in-app path, give up when the next step isn't clear.
+
+**Clarity & comprehension** — Buttons with vague or similar labels, icons without text, error messages that don't explain what to do, success states too subtle to notice, jargon an older person wouldn't understand.
+
+**Trust & confidence** — Slow responses that make them think nothing happened, destructive-looking actions with weak confirmation, tiny text, low contrast, competing calls to action.
+
+IMPORTANT: Do NOT generate scenarios for features that don't exist on this site. Do NOT repeat the same flow with minor variations. Each scenario should test something genuinely different. If the site is simple (few pages, few forms), generate fewer but more meaningful scenarios.
+
+Return as a JSON array of interaction scenarios. Each scenario needs a "category" field ("happy-path", "edge-case", "boundary", or "error-recovery"). Use 3-8 actions per scenario. Use CSS selectors Playwright can find (prefer visible text, roles, placeholders over IDs).`;
+  }
+
+  if (persona === "hacky") {
+    return `Based on your test plan and what you see on this site, generate ALL the interaction scenarios needed to thoroughly probe it as a hostile but unprivileged browser user. This is your ONE chance to define every test — make each scenario unique and purposeful.
+
+${baseInfo}
+
+Look at the ACTUAL site map above. Based on what pages, forms, buttons, and links exist, decide which of these testing angles matter:
+
+**Obvious flows with suspicion** — Walk the main flows but look for cracks: permissions leaks, role boundaries, hidden state, destructive actions without guards.
+
+**Route & permission probing** — Try admin/settings/debug/export/billing URLs, modify IDs, swap params, add ?debug=true or ?role=admin, try deep links that bypass normal navigation.
+
+**Input tampering** — Submit forms empty, malformed, oversized, duplicated. Use suspicious payloads, weird unicode, absurd lengths, broken dates, wrong types.
+
+**State abuse** — Refresh mid-action, back/forward, resubmit, reopen from history. Look for stale state, leaked data, actions that succeed after UI says they failed.
+
+**Browser-only attack surface** — Probe hidden links, API-like routes, exported files, error messages that reveal too much, disabled controls, missing empty-state guards.
+
+IMPORTANT: Do NOT generate scenarios for features that don't exist on this site. Do NOT repeat the same probe with minor variations. If the site has no forms, skip input tampering. If there are no obvious admin routes, don't generate 5 variations of /admin. Be smart about what's worth testing.
+
+Return as a JSON array of interaction scenarios. Each scenario needs a "category" field ("happy-path", "edge-case", "abuse", "boundary", or "error-recovery"). Use 3-8 actions per scenario. Focus on what a normal browser user should not be able to reach or infer.`;
+  }
+
+  return `Based on your test plan and what you see on this site, generate ALL the interaction scenarios needed to thoroughly test it. This is your ONE chance to define every test — make each scenario unique and purposeful.
+
+${baseInfo}
 
 Persona guidance:
 ${getPersonaPromptGuidance(context.persona, "happy")}
 
-For each flow, generate step-by-step Playwright-compatible actions. Think like a user:
-- Navigate to the page
-- Look around (take a screenshot)
-- Click what looks clickable
-- Fill forms with realistic data
-- Submit and check what happens
-- Take a screenshot of the result
+Look at the ACTUAL site map above. Based on what pages, forms, buttons, and links exist, decide which of these testing angles matter:
 
-Return as a JSON array of interaction scenarios. Each scenario should have 3-10 actions. Use CSS selectors that Playwright can find (prefer visible text, roles, placeholders over IDs).`;
-}
+**Happy paths** — The core flows a real user would complete. Navigate, click, fill forms, submit, verify results.
 
-function buildBreakItPrompt(context: TestContext, testPlan: string, pageMap: string): string {
-  const persona = context.persona ?? "standard";
-  if (persona === "old-man") {
-    return `Now simulate what happens when an older, low-tech user gets confused, hesitant, or uncertain.
+**Input abuse** — Submit forms empty, with XSS payloads, SQL injection strings, emoji floods, 10000-char strings, wrong formats. Only for forms that ACTUALLY EXIST on the site.
 
-URL: ${context.url}
-Device: ${context.deviceProfile}
-Persona: ${getPersonaLabel(context.persona)}
+**Navigation abuse** — Try /admin, /api, /../etc/passwd, add ?debug=true, hit back/forward mid-action, fill half a form and leave.
 
-${pageMap ? `Site map (forms, inputs, buttons found):\n${pageMap}\n` : ""}
+**Interaction abuse** — Double-click submit buttons, click disabled elements, press Enter in inputs, press Escape during modals, rapid-fire actions.
 
-Generate confusion and recovery scenarios like these:
+**Edge cases** — Zero items, 1000 items, very long text, unicode/RTL, responsive breakpoints, timing issues (click before load, type faster than autocomplete).
 
-- Click the most obvious button even if it is not the right next step
-- Read labels too literally and choose the wrong path
-- Start filling a form, stop halfway, go back, and try to recover
-- Miss secondary actions because they are too subtle
-- Fail to notice success state and try the same action again
-- Get nervous after warnings or unfamiliar wording
-- Misunderstand icons, abbreviations, and technical terms
-- Assume the app is broken when feedback is delayed or unclear
-- Use browser back/forward because there is no obvious in-app path
-- Give up when the next step is not visually obvious
+**URL/routing** — Missing params, non-existent IDs, negative IDs, strings where numbers expected, trailing slashes, hash fragments.
 
-Return as a JSON array of interaction scenarios. Focus on confusion, clarity, trust, and recovery rather than hostile abuse.`;
-  }
+IMPORTANT RULES:
+- Do NOT generate scenarios for features that don't exist on this site. If there are no forms, skip input abuse. If there's only one page, skip navigation abuse.
+- Do NOT repeat the same flow with minor variations. Each scenario must test something genuinely different.
+- If the site is simple, generate fewer but more meaningful scenarios. A simple landing page needs 3-5 scenarios, not 15.
+- Prioritize scenarios most likely to find real bugs over exhaustive coverage of unlikely edge cases.
 
-  if (persona === "hacky") {
-    return `Now it's time to probe this site like a hostile but unprivileged browser user. Be creative, persistent, and suspicious.
-
-URL: ${context.url}
-Device: ${context.deviceProfile}
-Persona: ${getPersonaLabel(context.persona)}
-
-${pageMap ? `Site map (forms, inputs, buttons found):\n${pageMap}\n` : ""}
-
-Generate adversarial interaction scenarios. Here's what I want you to try:
-
-**Route and permission probing:**
-- Navigate to admin-, staff-, settings-, billing-, export-, and debug-looking URLs
-- Modify IDs in the URL to access neighboring records
-- Remove required URL params and swap in nonsense values
-- Add \`?debug=true\`, \`?role=admin\`, \`?view=all\`, \`?tab=internal\`
-- Try deep links that bypass the normal navigation order
-
-**Input tampering:**
-- Submit every form empty, malformed, oversized, and duplicated
-- Use suspicious payloads, weird unicode, absurd lengths, broken dates, and wrong types
-- Repeat destructive-looking actions twice to see if protections fail
-
-**State abuse:**
-- Refresh mid-action, go back, go forward, resubmit, or reopen pages from browser history
-- Trigger the same action from multiple obvious UI paths
-- Look for stale state, leaked data, or actions that succeed after the UI says they failed
-
-**Browser-only attack surface:**
-- Probe hidden links, obvious API-like routes, exported files, and anything that looks internal
-- Check whether the app reveals too much through error messages, disabled controls, or missing empty-state guards
-
-Return as a JSON array of interaction scenarios. 5-15 scenarios, each with 3-8 actions. Focus on what a normal browser user should not be able to reach or infer.`;
-  }
-
-  return `Now it's time to try to break this site. You're a QA tester whose bonus depends on finding bugs. Be creative, be mean, be thorough.
-
-URL: ${context.url}
-Device: ${context.deviceProfile}
-Persona: ${getPersonaLabel(context.persona)}
-
-${pageMap ? `Site map (forms, inputs, buttons found):\n${pageMap}\n` : ""}
-
-Persona guidance:
-${getPersonaPromptGuidance(context.persona, "breaking")}
-
-Generate adversarial interaction scenarios. Here's what I want you to try:
-
-**Input abuse:**
-- Submit every form you find completely empty
-- Fill text fields with: \`<script>alert('xss')</script>\`
-- Fill text fields with: \`'; DROP TABLE users; --\`
-- Fill email fields with: \`not-an-email\`, \`@@@\`, \`a@b\`
-- Fill number fields with: \`-1\`, \`0\`, \`99999999\`, \`NaN\`, \`1.1.1\`
-- Fill phone fields with: \`abc\`, \`+0000000\`, emojis
-- Paste a 10,000 character string into short text inputs
-- Fill date fields with: \`2099-12-31\`, \`1900-01-01\`, \`0000-00-00\`
-
-**Navigation abuse:**
-- Navigate to \`${context.url}/admin\`, \`${context.url}/api\`, \`${context.url}/../etc/passwd\`
-- Add \`?debug=true\`, \`?role=admin\` to URLs
-- Navigate to a page, hit back, hit forward, refresh
-- Open a form, fill half of it, navigate away, come back
-
-**Interaction abuse:**
-- Double-click every submit button
-- Click disabled-looking buttons
-- Press Enter in every input field
-- Press Escape during modals/overlays
-- Tab through the entire page and press Enter on focused elements
-- Right-click interactive elements
-- Scroll to the very bottom immediately, then scroll back up
-
-**State abuse:**
-- Refresh the page mid-form-submission
-- Clear cookies/localStorage conceptually (navigate with ?nocache)
-- Try the same action twice (double-submit, double-add-to-cart)
-
-Return as a JSON array of interaction scenarios. 5-15 scenarios, each with 3-8 actions. Focus on things most likely to expose real bugs.`;
-}
-
-function buildEdgeCasePrompt(context: TestContext, testPlan: string, pageMap: string): string {
-  if ((context.persona ?? "standard") === "old-man") {
-    return `Now think about clarity, confidence, and comprehension edge cases for an older low-tech user.
-
-URL: ${context.url}
-Device: ${context.deviceProfile}
-Persona: ${getPersonaLabel(context.persona ?? "old-man")}
-
-${pageMap ? `Site map:\n${pageMap}\n` : ""}
-
-Generate scenarios for:
-
-**Comprehension edge cases:**
-- Buttons whose labels are vague, similar, or too technical
-- Icons with no text labels
-- Error messages that do not explain what to do next
-- Success states that are too subtle to notice
-- Long forms where it is unclear what is required
-
-**Navigation edge cases:**
-- No obvious next step from the current page
-- Multiple competing calls to action
-- Browser back/forward creating confusion
-- Modals, drawers, or menus that close unexpectedly
-
-**Confidence edge cases:**
-- Slow responses that make the user think nothing happened
-- Destructive-looking actions with weak confirmation
-- Tiny text, low contrast, or cramped layouts that make reading difficult
-- Jargon, abbreviations, and internal vocabulary that a normal older person would not understand
-
-Return as a JSON array of interaction scenarios. Focus on confusion, readability, trust, and recovery.`;
-  }
-
-  return `Now think about edge cases and boundary conditions. The subtle stuff that slips through code review.
-
-URL: ${context.url}
-Device: ${context.deviceProfile}
-Persona: ${getPersonaLabel(context.persona)}
-
-${pageMap ? `Site map:\n${pageMap}\n` : ""}
-
-Persona guidance:
-${getPersonaPromptGuidance(context.persona, "edge")}
-
-Generate scenarios for:
-
-**Responsive edge cases:**
-- How does the site look at exactly 768px? At 320px? At 2560px?
-- What happens to long text that doesn't fit?
-- Do images scale or overflow?
-- Are touch targets big enough on mobile?
-
-**Content edge cases:**
-- What if there are zero items/results?
-- What if there are 1000 items?
-- What about very long names, titles, or descriptions?
-- Unicode characters: Chinese, Arabic, emoji sequences (👨‍👩‍👧‍👦), RTL text (مرحبا)
-
-**Timing edge cases:**
-- Click a link before the page fully loads
-- Type faster than autocomplete can respond
-- Submit while an animation is still playing
-
-**URL/routing edge cases:**
-- Remove a required URL param
-- Use an ID that doesn't exist (\`/item/99999999\`)
-- Use a negative ID (\`/item/-1\`)
-- Use a string where a number is expected (\`/item/abc\`)
-- Trailing slashes vs no trailing slashes
-- Hash fragments that don't match anything
-
-Return as a JSON array of interaction scenarios. 5-10 scenarios, 3-8 actions each.`;
+Return as a JSON array of interaction scenarios. Each scenario needs a "category" field ("happy-path", "edge-case", "abuse", "boundary", or "error-recovery"). Use 3-8 actions per scenario. Use CSS selectors Playwright can find (prefer visible text, roles, placeholders over IDs).`;
 }
 
 function buildAccessibilityPrompt(context: TestContext, pageMap: string): string {
@@ -891,6 +672,8 @@ Return findings as a JSON array with severity, category "accessibility", and spe
 
 function buildMemoryPrompt(): string {
   return `You are a testing memory system. Your job is to maintain a concise, structured markdown file that captures everything important about a web app across test sessions.
+
+CRITICAL: You are READ-ONLY. Do NOT use any file editing tools. Do NOT create, modify, or delete any files. Just return the memory content as text in your response.
 
 Write in present tense. Be specific and factual. This memory will be read by an AI tester in future sessions to avoid re-learning the app from scratch.
 
@@ -989,18 +772,12 @@ function getPersonaLabel(persona: TestPersona | undefined): string {
 
 function getPersonaPromptGuidance(
   persona: TestPersona | undefined,
-  stage: "recon" | "happy" | "breaking" | "edge" | "accessibility",
+  stage: "recon" | "happy" | "accessibility",
 ): string {
   switch (persona ?? "standard") {
     case "hacky":
       if (stage === "happy") {
         return `Treat "happy path" as "obvious path a real attacker or curious user would try first." Prefer flows that reveal permissions, account boundaries, hidden state, destructive actions, and route protection gaps.`;
-      }
-      if (stage === "breaking") {
-        return `Prioritize auth bypass by navigation, route tampering, query/hash manipulation, ID enumeration, role leakage, insecure direct object references, repeated destructive actions, and anything that should be guarded but is reachable in a browser.`;
-      }
-      if (stage === "edge") {
-        return `Focus on route boundaries, malformed params, odd URL states, empty states that expose data, and flows that break when a normal user pushes the browser in slightly hostile ways.`;
       }
       if (stage === "accessibility") {
         return `Keep the accessibility check practical: highlight confusing or inaccessible UI that also increases the risk of mistaken actions, hidden warnings, or unsafe destructive behavior.`;
@@ -1009,12 +786,6 @@ function getPersonaPromptGuidance(
     case "old-man":
       if (stage === "happy") {
         return `Pick the most obvious flows and move through them slowly. Favor the biggest buttons, the plainest wording, and common expectations. Note every place where the user has to stop and think.`;
-      }
-      if (stage === "breaking") {
-        return `Generate confusion scenarios rather than technical abuse: wrong button clicks, misunderstood labels, mistaken back navigation, fear after an unclear warning, uncertainty about whether an action worked, and giving up when the app feels intimidating.`;
-      }
-      if (stage === "edge") {
-        return `Focus on wording, navigation, icon-only controls, hidden assumptions, unfamiliar jargon, unclear empty states, and moments where an older low-tech user would think "I don't know what this means."`;
       }
       if (stage === "accessibility") {
         return `Emphasize readability, contrast, text size, cognitive load, predictable navigation, obvious confirmation states, and whether this person can trust what they just did.`;
@@ -1026,10 +797,11 @@ function getPersonaPromptGuidance(
 }
 
 // ─── Site crawler — discover what's on the page ────────────
-async function crawlSiteMap(url: string, out: (text: string) => void, showBrowser: boolean): Promise<string> {
+async function crawlSiteMap(url: string, out: (text: string) => void, _showBrowser: boolean): Promise<string> {
   try {
     const { chromium } = await import("playwright");
-    const browser = await chromium.launch(getBrowserSession(showBrowser).launchOptions);
+    // Always headless — this is just data collection, no need to show the browser
+    const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: "networkidle", timeout: 30_000 });
 

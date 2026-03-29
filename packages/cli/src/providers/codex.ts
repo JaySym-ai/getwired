@@ -43,7 +43,7 @@ export class CodexProvider extends TestingProvider {
 
   async *stream(context: TestContext, messages: ProviderMessage[]): AsyncGenerator<StreamChunk> {
     const prompt = messages.map((m) => m.content).join("\n\n");
-    const proc = spawn("codex", ["--full-auto", "-q", prompt], {
+    const proc = spawn("codex", ["--read-only", "-q", prompt], {
       cwd: context.projectPath,
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -106,7 +106,7 @@ export class CodexProvider extends TestingProvider {
 
   private execCodex(prompt: string, cwd?: string): Promise<string> {
     return new Promise((resolve, reject) => {
-      const proc = spawn("codex", ["--full-auto", "--quiet", prompt], {
+      const proc = spawn("codex", ["--read-only", "--quiet", prompt], {
         cwd,
         stdio: ["pipe", "pipe", "pipe"],
       });

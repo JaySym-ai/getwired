@@ -57,8 +57,10 @@ export function ProviderStream({
       paddingX={1}
       paddingY={0}
       width="100%"
+      height="100%"
       flexGrow={0}
       flexShrink={0}
+      overflowY="hidden"
     >
       {/* Header */}
       <Box gap={1} marginBottom={0}>
@@ -96,6 +98,7 @@ export function ProviderStream({
               }
               bold={isCommand}
               dimColor={!isCommand && !isError && !isTool}
+              wrap="truncate"
             >
               {line}
               {isLastLine && isStreaming ? (

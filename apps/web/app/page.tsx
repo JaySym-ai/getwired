@@ -127,126 +127,7 @@ const OpenCodeIcon = () => (
   <img src="/logos/opencode.svg" alt="OpenCode" className="h-8 w-8" />
 );
 
-function CopyCommand({
-  command,
-  label = "Click to copy",
-}: {
-  command: string;
-  label?: string;
-}) {
-  const [copied, setCopied] = useState(false);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(command);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <button
-      onClick={handleCopy}
-      className="group mt-8 inline-flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-black/60 px-6 py-3 font-mono text-sm text-green-400 transition hover:border-emerald-400/50 hover:bg-emerald-950/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)]"
-    >
-      <span className="text-emerald-600">$</span>
-      <span>{command}</span>
-      <span className="ml-2 text-emerald-500/40 text-xs transition group-hover:text-emerald-400/70">
-        {copied ? "Copied!" : label}
-      </span>
-    </button>
-  );
-}
-
-function InstallSection() {
-  return (
-    <section className="w-full border-t border-emerald-500/10 px-4 py-20">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-10">
-        <div className="max-w-2xl">
-          <p className="font-mono text-xs uppercase tracking-[0.35em] text-emerald-500/40">
-            Install
-          </p>
-          <h2 className="mt-4 font-mono text-2xl text-emerald-200 sm:text-3xl">
-            GetWired is live on npm
-          </h2>
-          <p className="mt-4 font-mono text-sm leading-7 text-emerald-500/60">
-            Install it globally for daily use, or run it with npx if you want to try it without
-            changing your environment.
-          </p>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-2xl border border-emerald-500/15 bg-emerald-950/10 p-6 shadow-[0_0_40px_rgba(16,185,129,0.06)]">
-            <p className="font-mono text-xs uppercase tracking-[0.3em] text-emerald-500/40">
-              Recommended
-            </p>
-            <CopyCommand command="npm install -g getwired" label="Copy install" />
-
-            <div className="mt-8 rounded-xl border border-emerald-500/10 bg-black/50 p-5">
-              <p className="font-mono text-xs uppercase tracking-[0.3em] text-emerald-500/40">
-                Quick start
-              </p>
-              <div className="mt-4 space-y-4 font-mono text-sm text-emerald-300/75">
-                <div>
-                  <p className="text-emerald-400">1. Verify the install</p>
-                  <code className="mt-2 block rounded-lg border border-emerald-500/10 bg-black/60 px-4 py-3 text-green-400">
-                    $ getwired --version
-                  </code>
-                </div>
-                <div>
-                  <p className="text-emerald-400">2. Initialize in your project</p>
-                  <code className="mt-2 block rounded-lg border border-emerald-500/10 bg-black/60 px-4 py-3 text-green-400">
-                    $ getwired init
-                  </code>
-                </div>
-                <div>
-                  <p className="text-emerald-400">3. Run your first test</p>
-                  <code className="mt-2 block rounded-lg border border-emerald-500/10 bg-black/60 px-4 py-3 text-green-400">
-                    $ getwired test --url https://example.com
-                  </code>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-emerald-500/15 bg-black/40 p-6">
-            <p className="font-mono text-xs uppercase tracking-[0.3em] text-emerald-500/40">
-              No install
-            </p>
-            <CopyCommand command="npx getwired@0.0.1 --version" label="Copy npx command" />
-            <p className="mt-6 font-mono text-sm leading-7 text-emerald-500/60">
-              Requires Node.js 20 or newer. The package name on npm is lowercase:
-              <span className="ml-2 rounded bg-emerald-950/40 px-2 py-1 text-emerald-300">
-                getwired
-              </span>
-            </p>
-            <div className="mt-6 rounded-xl border border-emerald-500/10 bg-emerald-950/10 p-5">
-              <p className="font-mono text-xs uppercase tracking-[0.3em] text-emerald-500/40">
-                Links
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <a
-                  href="https://www.npmjs.com/package/getwired"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded border border-emerald-500/20 px-4 py-2 font-mono text-xs text-emerald-400/80 transition hover:border-emerald-400/50 hover:bg-emerald-400 hover:text-black"
-                >
-                  npm package
-                </a>
-                <a
-                  href="https://github.com/JaySym-ai/getwired"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded border border-emerald-500/20 px-4 py-2 font-mono text-xs text-emerald-400/80 transition hover:border-emerald-400/50 hover:bg-emerald-400 hover:text-black"
-                >
-                  source
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
 
 export default function Home() {
   return (
@@ -287,7 +168,6 @@ export default function Home() {
           Break your app before your users do. Harness AI to test like a real
           (chaotic) human.
         </p>
-        <CopyCommand command="npm install -g getwired" label="Copy install" />
         <p className="mt-4 font-mono text-[11px] text-emerald-500/30">
           Community-driven &middot; Built with Intent from Augment Code
         </p>
@@ -297,8 +177,6 @@ export default function Home() {
       <div className="w-full px-4 pb-20 flex flex-col items-center">
         <TerminalDemo />
       </div>
-
-      <InstallSection />
 
       {/* Providers */}
       <div className="w-full border-t border-emerald-500/10 py-16 flex flex-col items-center">
