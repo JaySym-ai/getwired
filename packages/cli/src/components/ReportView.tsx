@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Box, Text, useApp, useInput } from "ink";
 import { readFile, readdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { Header } from "./Header.js";
 import { getReportDir } from "../config/settings.js";
 import type { TestReport } from "../providers/types.js";
@@ -56,10 +56,18 @@ export function ReportView({ reportId }: ReportViewProps) {
   async function loadReport(id: string) {
     try {
       const dir = getReportDir(process.cwd());
+      const resolvedDir = resolve(dir);
       // Try subdirectory format first: reports/<id>/<id>.json
       const cleanId = id.replace(/\.json$/, "");
-      const subDirPath = join(dir, cleanId, `${cleanId}.json`);
-      const flatPath = join(dir, id.endsWith(".json") ? id : `${id}.json`);
+      const subDirPath = resolve(dir, cleanId, `${cleanId}.json`);
+      const flatPath = resolve(dir, id.endsWith(".json") ? id : `${id}.json`);
+
+      // Prevent path traversal — resolved path must stay within reports dir
+      if (!subDirPath.startsWith(resolvedDir + "/") || !flatPath.startsWith(resolvedDir + "/")) {
+        setError(`Invalid report ID: ${id}`);
+        return;
+      }
+
       const filePath = existsSync(subDirPath) ? subDirPath : flatPath;
       const raw = await readFile(filePath, "utf-8");
       setReport(JSON.parse(raw));

@@ -12,7 +12,7 @@ import { getLocalAppUrlError, isLocalAppUrl, runTestSession } from "../orchestra
 import { ProviderStream } from "./ProviderStream.js";
 import { readFile, readdir, rm, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { GetwiredSettings } from "../config/settings.js";
 import type { DeviceProfile, TestFinding, TestPersona, TestReport } from "../providers/types.js";
 import type { TestStep, TestPhase } from "../orchestrator/index.js";
@@ -254,9 +254,16 @@ export function App({ mode, initProvider }: AppProps) {
 
   async function loadReportDetail(filename: string) {
     const dir = getReportDir(process.cwd());
+    const resolvedDir = resolve(dir);
     // Try subdirectory format first: reports/<id>/<id>.json
-    const subDirPath = join(dir, filename, `${filename}.json`);
-    const flatPath = join(dir, filename.endsWith(".json") ? filename : `${filename}.json`);
+    const subDirPath = resolve(dir, filename, `${filename}.json`);
+    const flatPath = resolve(dir, filename.endsWith(".json") ? filename : `${filename}.json`);
+
+    // Prevent path traversal — resolved path must stay within reports dir
+    if (!subDirPath.startsWith(resolvedDir + "/") || !flatPath.startsWith(resolvedDir + "/")) {
+      return;
+    }
+
     const filePath = existsSync(subDirPath) ? subDirPath : flatPath;
     const raw = await readFile(filePath, "utf-8");
     setActiveReport(JSON.parse(raw));
