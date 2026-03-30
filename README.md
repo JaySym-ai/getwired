@@ -14,12 +14,6 @@ Break your app before your users do. GetWired uses AI to test your web app like 
 ## Install
 
 ```bash
-npx getwired
-```
-
-Or install globally:
-
-```bash
 npm install -g getwired
 ```
 
