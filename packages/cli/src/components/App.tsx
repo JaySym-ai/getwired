@@ -554,16 +554,10 @@ export function App({ mode, initProvider }: AppProps) {
                   <Text color={i === providerIndex ? "greenBright" : "green"} bold={i === providerIndex}>
                     {p.displayName}
                   </Text>
-                  {p.recommendedReason && <Text color="greenBright">(recommended)</Text>}
                   <Text color="green" dimColor>({p.authType})</Text>
                 </Box>
               ))}
             </Box>
-            {selectedInitProvider?.recommendedReason && (
-              <Text color="greenBright" bold>
-                {"  "}Recommended: {selectedInitProvider.displayName} {selectedInitProvider.recommendedReason.replace(/^Recommended because /, "because ")}
-              </Text>
-            )}
             <Text color="green" dimColor italic>
               {"  "}{selectedInitProvider?.authInstructions}
             </Text>
@@ -1043,15 +1037,9 @@ export function App({ mode, initProvider }: AppProps) {
                     <Text color={i === settingEditIndex ? "greenBright" : "green"} bold={i === settingEditIndex}>
                       {p.displayName}
                     </Text>
-                    {p.recommendedReason && <Text color="greenBright">(recommended)</Text>}
                     {p.name === settings.provider && <Text color="green" dimColor>(current)</Text>}
                   </Box>
                 ))}
-                {selectedSettingsProvider?.recommendedReason && (
-                  <Text color="greenBright" bold>
-                    Recommended: {selectedSettingsProvider.displayName} {selectedSettingsProvider.recommendedReason.replace(/^Recommended because /, "because ")}
-                  </Text>
-                )}
               </Box>
             )}
             {settingEditing === "device" && (

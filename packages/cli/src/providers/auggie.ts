@@ -14,7 +14,6 @@ export class AuggieProvider extends TestingProvider {
     name: "auggie",
     displayName: "Auggie",
     authType: "subscription",
-    recommendedReason: "Recommended because it has better context handling.",
     authInstructions:
       "Requires an Augment Code subscription. Make sure `auggie` CLI is installed and authenticated. Run `auggie auth` to set up.",
   };

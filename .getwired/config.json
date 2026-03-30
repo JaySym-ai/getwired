@@ -1,5 +1,5 @@
 {
-  "provider": "codex",
+  "provider": "auggie",
   "auth": {},
   "authentication": {
     "cookies": [],

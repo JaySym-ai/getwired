@@ -4,10 +4,8 @@ import Image from "next/image";
 
 function ProviderLogo({ name, src, alt }: { name: string; src: string; alt: string }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-lg border border-emerald-500/10 bg-black/40 px-8 py-5 transition hover:border-emerald-500/30 hover:bg-emerald-950/30 hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]">
-      <div className="h-10 w-10 flex items-center justify-center text-emerald-400">
-        <Image src={src} alt={alt} width={32} height={32} />
-      </div>
+    <div className="flex items-center gap-2 rounded border border-emerald-500/10 bg-black/40 px-4 py-2 transition hover:border-emerald-500/30 hover:bg-emerald-950/30">
+      <Image src={src} alt={alt} width={20} height={20} />
       <span className="font-mono text-xs text-emerald-500">{name}</span>
     </div>
   );
@@ -65,7 +63,7 @@ export default function Home() {
   ╚═════╝ ╚══════╝   ╚═╝    ╚══╝╚══╝ ╚═╝╚═╝  ╚═╝╚══════╝╚═════╝`}
         </pre>
         <h1 className="mt-4 font-mono text-base tracking-wide text-emerald-300/70 md:text-lg">
-          The CLI that tests your app like a slightly unhinged QA tester
+          The CLI that tests your app like a crazy QA tester
         </h1>
         <p className="mt-3 max-w-xl text-center font-mono text-sm text-emerald-500 leading-relaxed">
           One command. AI opens your app in a browser, clicks everything,
@@ -84,11 +82,11 @@ export default function Home() {
       </section>
 
       {/* Supported AI Providers */}
-      <section className="w-full border-t border-emerald-500/10 py-16 flex flex-col items-center">
-        <h2 className="mb-8 font-mono text-xs uppercase tracking-widest text-emerald-600">
+      <section className="w-full border-t border-emerald-500/10 py-8 flex flex-col items-center">
+        <h2 className="mb-4 font-mono text-xs uppercase tracking-widest text-emerald-600">
           Supported AI Providers
         </h2>
-        <div className="flex flex-wrap justify-center gap-4">
+        <div className="flex flex-wrap justify-center gap-2">
           <ProviderLogo name="Auggie" src="/logos/auggie.svg" alt="Auggie by Augment Code — AI testing provider" />
           <ProviderLogo name="Claude Code" src="/logos/claude-code.svg" alt="Claude Code by Anthropic — AI testing provider" />
           <ProviderLogo name="Codex" src="/logos/codex.svg" alt="Codex by OpenAI — AI testing provider" />
@@ -102,6 +100,18 @@ export default function Home() {
         aria-label="Live demo of GetWired AI testing CLI"
       >
         <h2 className="sr-only">See GetWired in Action</h2>
+        <p className="text-center text-sm text-gray-400 mb-6 max-w-2xl leading-relaxed">
+          Recommended place to run it is in{" "}
+          <a
+            href="https://pxllnk.co/intent-getwired"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-emerald-400 hover:text-emerald-300 underline underline-offset-2 transition"
+          >
+            Intent
+          </a>
+          . Also works in any terminal, IDE integrated terminal, or CI environment.
+        </p>
         <TerminalDemo />
       </section>
 
