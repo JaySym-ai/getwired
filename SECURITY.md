@@ -6,7 +6,7 @@ If you discover a security vulnerability in GetWired, please report it responsib
 
 Instead, please email the maintainer directly at:
 
-**jaysym.dev@gmail.com**
+**jason@qlood.com**
 
 Include as much detail as possible:
 
