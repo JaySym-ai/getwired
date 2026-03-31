@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import posthog from "posthog-js";
 
 const defaultCommand = "npm install -g getwired";
 
@@ -9,6 +10,7 @@ export function InstallCommand({ command = defaultCommand }: { command?: string 
 
   function handleCopy() {
     navigator.clipboard.writeText(command);
+    posthog.capture("command_copied", { command });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
