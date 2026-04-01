@@ -797,12 +797,6 @@ export async function runNativeTestSession(
   }
 
   try {
-    if (!context.url) {
-      throw new Error(
-        "No local dev server detected. Start your app, then run GetWired against localhost (for example http://localhost:3000).",
-      );
-    }
-
     const platformLabel = options.nativePlatform === "android" ? "🤖 Android Emulator" : "🍎 iOS Simulator";
 
     // ── Step 1: Scan project ─────────────────────────
@@ -1221,8 +1215,6 @@ export async function runNativeTestSession(
               out,
             );
             hybridSession = hybridState.session;
-            hybridContexts = hybridState.contexts;
-            hybridWebviewContext = hybridState.webviewContext;
             nativeScenarioExecution = await executeHybridScenarios(
               plannedScenarios,
               context,
@@ -3231,7 +3223,6 @@ async function executeHybridScenarios(
 
           await sleep(900);
         } catch (error) {
-          scenarioFailed = true;
           const selectorHint = action.selector ? ` selector=${action.selector}` : "";
           const urlHint = action.url ? ` url=${action.url}` : "";
           const keyHint = action.key ? ` key=${action.key}` : "";
@@ -3241,6 +3232,7 @@ async function executeHybridScenarios(
             out(`      ! Treating this as a GetWired selector mismatch, not a confirmed app bug\n`);
             continue;
           }
+          scenarioFailed = true;
           findings.push({
             id: `hybrid-action-${generateId()}`,
             severity: scenario.category === "happy-path" ? "high" : "medium",
