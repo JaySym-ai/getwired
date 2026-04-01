@@ -15,6 +15,7 @@ import {
   resolveNativeLaunchTarget,
   upsertNativeLaunchMemory,
 } from "../emulator/native-launch.js";
+import { buildActionPrompt, validateScenarioActions } from "../emulator/native-actions.js";
 import type {
   ResolvedAndroidLaunchTarget,
   ResolvedIosLaunchTarget,
@@ -60,7 +61,7 @@ export interface OrchestratorCallbacks {
 
 // ─── Interaction action types for browser execution ───
 interface TestAction {
-  type: "navigate" | "click" | "fill" | "select" | "scroll" | "wait" | "screenshot" | "assert" | "keyboard";
+  type: "navigate" | "click" | "tap" | "fill" | "select" | "scroll" | "swipe-gesture" | "wait" | "screenshot" | "assert" | "keyboard" | "button";
   selector?: string;
   value?: string;
   url?: string;
@@ -967,7 +968,12 @@ export async function runNativeTestSession(
         content: buildNativeScenariosPrompt(context, testPlan, uiStructure, nativeLaunchTarget),
       },
     ]);
-    const providerScenarios = parseScenarios(scenarioPlanResult);
+    const rawScenarios = parseScenarios(scenarioPlanResult);
+    const providerScenarios = validateScenarioActions(rawScenarios, options.nativePlatform);
+    if (rawScenarios.length > 0 && providerScenarios.length < rawScenarios.length) {
+      const dropped = rawScenarios.length - providerScenarios.length;
+      out(`  Filtered ${dropped} scenario${dropped === 1 ? "" : "s"} with invalid action types\n`);
+    }
     const usedBuiltInSmokeScenario = providerScenarios.length === 0;
     const plannedScenarios = usedBuiltInSmokeScenario
       ? buildBuiltInNativeSmokeScenarios()
@@ -1513,6 +1519,7 @@ function buildNativeScenariosPrompt(
   target: import("../emulator/native-launch.js").ResolvedNativeLaunchTarget,
 ): string {
   const platformLabel = target.platform === "android" ? "Android Emulator" : "iOS Simulator";
+  const actionReference = buildActionPrompt(target.platform);
   return `Generate executable native-device test scenarios for the ${platformLabel}. These scenarios will be run by GetWired on the device, so every step must be concrete and actionable.
 
 Local app URL: ${context.url}
@@ -1525,27 +1532,14 @@ ${testPlan}
 
 ${uiStructure ? `Current UI structure:\n${uiStructure.slice(0, 8000)}\n` : ""}
 
-CRITICAL:
-- Return JSON array of interaction scenarios, not findings text.
-- Return ONLY raw JSON. Do not wrap it in markdown fences. Do not include prose before or after the JSON.
-- Use only these action types: click, fill, keyboard, scroll, wait, screenshot, assert.
-- Do NOT invent CSS selectors. In selector, use visible text, accessibility label, or resource-id that should exist in the current UI structure.
-- Do NOT use screen coordinates or node type names like "XCUIElementTypeWebView" as selectors.
-- Assume the app is already open on the current screen. Do not start with a navigate action.
-- If a form field is present, use fill with a realistic value.
-- Include at least one screenshot action somewhere in each scenario.
-- Keep scenarios grounded in what is actually visible right now.
+${actionReference}
 
 Focus on real mobile-native issues:
 - Elements too small to tap
 - Content cut off on small screens
 - Keyboard covering inputs
 - Missing back/recovery paths
-- Jank or delayed state changes
-- For keyboard actions, use only Enter, Tab, Escape, Back, or Backspace.
-
-Return as JSON:
-[{ "name": "...", "category": "happy-path|edge-case|abuse|boundary|error-recovery", "actions": [{ "type": "click|fill|keyboard|scroll|wait|screenshot|assert", "selector": "visible label or resource-id", "value": "text to type or assertion", "key": "Enter|Tab|Back|Escape", "description": "What you're doing and why" }] }]`;
+- Jank or delayed state changes`;
 }
 
 function buildBuiltInNativeSmokeScenarios(): InteractionScenario[] {
@@ -2474,6 +2468,7 @@ async function executeAndroidNativeScenarios(
 
         try {
           switch (action.type) {
+            case "tap":
             case "click": {
               const uiXml = await android.uiDump(deviceId);
               const node = findBestAndroidUiNode(parseAndroidUiDump(uiXml), action.selector ?? action.value ?? "");
@@ -2620,14 +2615,37 @@ async function executeIosNativeScenarios(
 
         try {
           switch (action.type) {
+            case "tap":
             case "click": {
-              await ios.tap(200, 400, deviceId);
+              const selector = action.selector ?? action.value ?? "";
+              if (selector) {
+                // Try accessibility label tap via AXe; fall back to tapById
+                try {
+                  await ios.tapByLabel(selector, deviceId);
+                } catch {
+                  await ios.tapById(selector, deviceId);
+                }
+              } else {
+                await ios.tap(200, 400, deviceId);
+              }
               completedActions++;
               break;
             }
             case "fill": {
-              // Tap the field area then type
-              await ios.tap(200, 400, deviceId);
+              const selector = action.selector ?? "";
+              if (selector) {
+                try {
+                  await ios.tapByLabel(selector, deviceId);
+                } catch {
+                  try {
+                    await ios.tapById(selector, deviceId);
+                  } catch {
+                    await ios.tap(200, 400, deviceId);
+                  }
+                }
+              } else {
+                await ios.tap(200, 400, deviceId);
+              }
               await sleep(400);
               await ios.typeText(action.value ?? "", deviceId);
               completedActions++;
@@ -2635,7 +2653,14 @@ async function executeIosNativeScenarios(
             }
             case "keyboard": {
               if (action.key) {
-                await ios.pressKey(mapIosKey(action.key), deviceId);
+                await ios.pressKey(mapIosHidKey(action.key), deviceId);
+                completedActions++;
+              }
+              break;
+            }
+            case "button": {
+              if (action.key) {
+                await ios.pressButton(action.key, deviceId);
                 completedActions++;
               }
               break;
@@ -2645,6 +2670,12 @@ async function executeIosNativeScenarios(
               const startY = amount >= 0 ? 600 : 200;
               const endY = amount >= 0 ? 200 : 600;
               await ios.swipe(200, startY, 200, endY, 350, deviceId);
+              completedActions++;
+              break;
+            }
+            case "swipe-gesture": {
+              const gestureName = action.value ?? "scroll-down";
+              await ios.gesture(gestureName, deviceId);
               completedActions++;
               break;
             }
@@ -2666,11 +2697,9 @@ async function executeIosNativeScenarios(
               break;
             }
             case "assert": {
-              // Basic assertion via UI dump text search
               const uiTree = await ios.uiDump(deviceId).catch(() => "");
               const needle = action.selector ?? action.value ?? "";
-              const shouldBeVisible = (action.value ?? "visible") === "visible";
-              if (shouldBeVisible && !uiTree.toLowerCase().includes(needle.toLowerCase())) {
+              if (needle && !uiTree.toLowerCase().includes(needle.toLowerCase())) {
                 findings.push({
                   id: `assert-${generateId()}`,
                   severity: "medium",
@@ -2721,20 +2750,31 @@ async function executeIosNativeScenarios(
   }
 }
 
-function mapIosKey(key: string): string {
+// AXe key command uses HID keycodes (integers)
+function mapIosHidKey(key: string): string {
   switch (key.toLowerCase()) {
     case "enter":
-      return "return";
+    case "return":
+      return "40";
     case "tab":
-      return "tab";
+      return "43";
     case "escape":
-      return "escape";
+      return "41";
     case "back":
-      return "home";
     case "del":
     case "delete":
     case "backspace":
-      return "delete";
+      return "42";
+    case "space":
+      return "44";
+    case "up":
+      return "82";
+    case "down":
+      return "81";
+    case "left":
+      return "80";
+    case "right":
+      return "79";
     default:
       return key;
   }

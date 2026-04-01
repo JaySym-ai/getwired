@@ -130,7 +130,6 @@ export function App({ mode, initProvider }: AppProps) {
   const [nativePlatformIndex, setNativePlatformIndex] = useState(0);
   const [nativeCheckResult, setNativeCheckResult] = useState<PrerequisiteCheck | null>(null);
   const [nativeCheckLoading, setNativeCheckLoading] = useState(false);
-  const [nativeAutoInstallApproved, setNativeAutoInstallApproved] = useState(false);
 
   const providers = getAvailableProviders();
   const selectedInitProvider = providers[providerIndex];
@@ -244,7 +243,7 @@ export function App({ mode, initProvider }: AppProps) {
   async function runPrerequisiteCheck(platform: NativePlatform) {
     setNativeCheckLoading(true);
     setNativeCheckResult(null);
-    setNativeAutoInstallApproved(false);
+
     try {
       const result = platform === "android"
         ? await checkAndroidPrerequisites()
@@ -488,7 +487,7 @@ export function App({ mode, initProvider }: AppProps) {
             setView("native-install-confirm");
             return;
           }
-          setNativeAutoInstallApproved(false);
+      
           setTestModeIndex(0);
           setSelectedTestPersona("standard");
           setView("native-mode");
@@ -498,7 +497,6 @@ export function App({ mode, initProvider }: AppProps) {
       case "native-install-confirm":
         if (key.escape || input === "b" || input === "n") { setView("native-check"); return; }
         if (key.return || input === "y") {
-          setNativeAutoInstallApproved(true);
           setTestModeIndex(0);
           setSelectedTestPersona("standard");
           setView("native-mode");
@@ -556,7 +554,7 @@ export function App({ mode, initProvider }: AppProps) {
       case "native":
         setNativePlatformIndex(0);
         setNativeCheckResult(null);
-        setNativeAutoInstallApproved(false);
+    
         setView("native-platform");
         break;
     }
