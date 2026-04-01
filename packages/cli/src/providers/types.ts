@@ -18,6 +18,7 @@ export interface StreamChunk {
 
 export type DeviceProfile = "desktop" | "mobile" | "both";
 export type TestPersona = "standard" | "hacky" | "old-man";
+export type NativePlatform = "android" | "ios";
 
 export interface TestContext {
   projectPath: string;

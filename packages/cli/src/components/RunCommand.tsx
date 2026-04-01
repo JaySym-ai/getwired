@@ -4,9 +4,9 @@ import { Header } from "./Header.js";
 import { StatusBar } from "./StatusBar.js";
 import { TestProgress } from "./TestProgress.js";
 import { ProviderStream } from "./ProviderStream.js";
-import { runTestSession } from "../orchestrator/index.js";
+import { runTestSession, runNativeTestSession } from "../orchestrator/index.js";
 import type { TestStep, TestPhase } from "../orchestrator/index.js";
-import type { TestFinding, TestPersona, TestReport } from "../providers/types.js";
+import type { NativePlatform, TestFinding, TestPersona, TestReport } from "../providers/types.js";
 
 interface RunCommandProps {
   options: {
@@ -16,6 +16,7 @@ interface RunCommandProps {
     scope?: string;
     persona?: TestPersona;
     device?: string;
+    platform?: NativePlatform;
     provider?: string;
     baselineOnly?: boolean;
   };
@@ -34,27 +35,41 @@ export function RunCommand({ options }: RunCommandProps) {
 
   useEffect(() => {
     const projectPath = process.cwd();
+    const callbacks = {
+      onPhaseChange: (p: TestPhase, msg: string) => {
+        setPhase(p);
+        setPhaseMessage(msg);
+      },
+      onStepUpdate: (s: TestStep[]) => setSteps([...s]),
+      onFinding: (f: TestFinding) => setFindings((prev) => [...prev, f]),
+      onLog: (msg: string) => setLogs((prev) => [...prev, msg].slice(-10)),
+      onProviderOutput: (text: string) => setProviderOutput((prev) => prev + text),
+    };
 
-    runTestSession(
-      projectPath,
-      {
-        url: options.url,
-        commitId: options.commit,
-        prId: options.pr,
-        scope: options.scope,
-        persona: options.persona,
-      },
-      {
-        onPhaseChange: (p, msg) => {
-          setPhase(p);
-          setPhaseMessage(msg);
+    const session = options.platform
+      ? runNativeTestSession(
+        projectPath,
+        {
+          url: options.url,
+          scope: options.scope,
+          persona: options.persona,
+          nativePlatform: options.platform,
         },
-        onStepUpdate: (s) => setSteps([...s]),
-        onFinding: (f) => setFindings((prev) => [...prev, f]),
-        onLog: (msg) => setLogs((prev) => [...prev, msg].slice(-10)),
-        onProviderOutput: (text) => setProviderOutput((prev) => prev + text),
-      },
-    )
+        callbacks,
+      )
+      : runTestSession(
+        projectPath,
+        {
+          url: options.url,
+          commitId: options.commit,
+          prId: options.pr,
+          scope: options.scope,
+          persona: options.persona,
+        },
+        callbacks,
+      );
+
+    session
       .then((r) => setReport(r))
       .catch((err) => setError(String(err)));
   }, []);
@@ -78,6 +93,8 @@ export function RunCommand({ options }: RunCommandProps) {
     ? `Regression · commit ${options.commit.slice(0, 7)}`
     : options.pr
       ? `Regression · PR #${options.pr}`
+      : options.platform
+        ? `Native ${options.platform === "ios" ? "iOS" : "Android"} · ${options.url ?? "Launch app"}`
       : options.baselineOnly
         ? "Capturing Baselines"
         : options.persona && options.persona !== "standard"
@@ -120,7 +137,7 @@ export function RunCommand({ options }: RunCommandProps) {
               </Text>
               {report.execution && (
                 <Text color={report.execution.evidenceMet ? "green" : "redBright"} dimColor={!report.execution.evidenceMet}>
-                  Browser evidence: {report.execution.navigations} navigations · {report.execution.screenshots} screenshots
+                  {options.platform ? "Device evidence" : "Browser evidence"}: {report.execution.navigations} navigations · {report.execution.screenshots} screenshots
                 </Text>
               )}
               <Text color="green" dimColor>

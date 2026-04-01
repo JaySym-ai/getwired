@@ -29,6 +29,7 @@ program
   .option("--scope <scope>", "Scope of testing (e.g. auth, checkout, navigation)")
   .option("--persona <mode>", "Test persona: standard, hacky, or old-man", "standard")
   .option("-d, --device <profile>", "Device profile: desktop, mobile, or both", "both")
+  .option("--platform <platform>", "Native emulator platform: android or ios (uses emulator instead of browser)")
   .option("--provider <provider>", "Override AI provider for this run")
   .action((options) => {
     render(<RunCommand options={options} />);

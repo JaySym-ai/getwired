@@ -33,6 +33,23 @@ export interface GetwiredSettings {
   provider: string;
   auth: Record<string, ProviderAuth>;
   authentication: AuthConfig;
+  native: {
+    ios: {
+      bundleId?: string;
+      launchCommand?: string;
+      launchUrl?: string;
+      workingDirectory?: string;
+      source?: string;
+    };
+    android: {
+      packageName?: string;
+      activity?: string;
+      launchCommand?: string;
+      launchUrl?: string;
+      workingDirectory?: string;
+      source?: string;
+    };
+  };
   testing: {
     deviceProfile: DeviceProfile;
     viewports: {
@@ -69,6 +86,10 @@ const DEFAULT_SETTINGS: GetwiredSettings = {
   provider: "claude-code",
   auth: {},
   authentication: DEFAULT_AUTH,
+  native: {
+    ios: {},
+    android: {},
+  },
   testing: {
     deviceProfile: "both",
     viewports: {
@@ -157,6 +178,18 @@ export async function loadConfig(projectPath: string): Promise<GetwiredSettings>
       credentials: {
         ...DEFAULT_AUTH.credentials,
         ...(saved.authentication?.credentials ?? {}),
+      },
+    },
+    native: {
+      ...DEFAULT_SETTINGS.native,
+      ...(saved.native ?? {}),
+      ios: {
+        ...DEFAULT_SETTINGS.native.ios,
+        ...(saved.native?.ios ?? {}),
+      },
+      android: {
+        ...DEFAULT_SETTINGS.native.android,
+        ...(saved.native?.android ?? {}),
       },
     },
     testing: {

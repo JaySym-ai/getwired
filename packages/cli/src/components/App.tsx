@@ -8,14 +8,16 @@ import { TestProgress } from "./TestProgress.js";
 import { initConfig, configExists, loadConfig, saveConfig, getReportDir, getNotesDir, getMemoryPath } from "../config/settings.js";
 import { getRegressionContext } from "../git/context.js";
 import { getAvailableProviders } from "../providers/registry.js";
-import { getLocalAppUrlError, isLocalAppUrl, runTestSession } from "../orchestrator/index.js";
+import { getLocalAppUrlError, isLocalAppUrl, runTestSession, runNativeTestSession } from "../orchestrator/index.js";
 import { ProviderStream } from "./ProviderStream.js";
 import { readFile, readdir, rm, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { GetwiredSettings } from "../config/settings.js";
-import type { DeviceProfile, TestFinding, TestPersona, TestReport } from "../providers/types.js";
+import type { DeviceProfile, TestFinding, TestPersona, TestReport, NativePlatform } from "../providers/types.js";
 import type { TestStep, TestPhase } from "../orchestrator/index.js";
+import type { PrerequisiteCheck } from "../emulator/types.js";
+import { checkAndroidPrerequisites, checkIosPrerequisites } from "../emulator/detect.js";
 
 // ─── View types ──────────────────────────────────────────
 type View =
@@ -32,7 +34,13 @@ type View =
   | "report-detail"
   | "notes"
   | "settings"
-  | "confirm-clear";
+  | "confirm-clear"
+  | "native-platform"
+  | "native-check"
+  | "native-install-confirm"
+  | "native-mode"
+  | "native-url"
+  | "native-running";
 
 interface AppProps {
   mode: "init" | "dashboard";
@@ -116,6 +124,13 @@ export function App({ mode, initProvider }: AppProps) {
   const [settingEditing, setSettingEditing] = useState<string | null>(null);
   const [settingEditIndex, setSettingEditIndex] = useState(0);
   const [settingSaved, setSettingSaved] = useState(false);
+
+  // Native emulator
+  const [nativePlatform, setNativePlatform] = useState<NativePlatform>("android");
+  const [nativePlatformIndex, setNativePlatformIndex] = useState(0);
+  const [nativeCheckResult, setNativeCheckResult] = useState<PrerequisiteCheck | null>(null);
+  const [nativeCheckLoading, setNativeCheckLoading] = useState(false);
+  const [nativeAutoInstallApproved, setNativeAutoInstallApproved] = useState(false);
 
   const providers = getAvailableProviders();
   const selectedInitProvider = providers[providerIndex];
@@ -225,6 +240,29 @@ export function App({ mode, initProvider }: AppProps) {
     return savedUrl && isLocalAppUrl(savedUrl) ? savedUrl : "";
   }
 
+  // ─── Native emulator prerequisite check ─────────────
+  async function runPrerequisiteCheck(platform: NativePlatform) {
+    setNativeCheckLoading(true);
+    setNativeCheckResult(null);
+    setNativeAutoInstallApproved(false);
+    try {
+      const result = platform === "android"
+        ? await checkAndroidPrerequisites()
+        : await checkIosPrerequisites();
+      setNativeCheckResult(result);
+    } catch (err) {
+      setNativeCheckResult({
+        platform,
+        available: false,
+        canProceed: false,
+        issues: [{ check: "Unexpected error", passed: false, hint: String(err) }],
+        devices: [],
+      });
+    } finally {
+      setNativeCheckLoading(false);
+    }
+  }
+
   // ─── Load reports ───────────────────────────────────
   async function loadReportsList() {
     try {
@@ -296,7 +334,7 @@ export function App({ mode, initProvider }: AppProps) {
   }
 
   // Disable input during test runs to avoid unnecessary re-renders
-  const isRunning = view === "test-running" || view === "regression-running";
+  const isRunning = view === "test-running" || view === "regression-running" || view === "native-running";
   const inputActive = !isRunning || !!testReport || !!testError;
 
   // ─── Input handler ──────────────────────────────────
@@ -428,6 +466,66 @@ export function App({ mode, initProvider }: AppProps) {
         }
         break;
 
+      // ── Native: Platform select ──
+      case "native-platform":
+        if (key.escape || input === "b") { setView("dashboard"); return; }
+        if (key.upArrow) setNativePlatformIndex((p) => Math.max(0, p - 1));
+        if (key.downArrow) setNativePlatformIndex((p) => Math.min(1, p + 1));
+        if (key.return) {
+          const platform: NativePlatform = nativePlatformIndex === 0 ? "android" : "ios";
+          setNativePlatform(platform);
+          setNativeCheckLoading(true);
+          setView("native-check");
+          runPrerequisiteCheck(platform);
+        }
+        break;
+
+      // ── Native: Check results ──
+      case "native-check":
+        if (key.escape || input === "b") { setView("native-platform"); return; }
+        if (key.return && nativeCheckResult?.canProceed) {
+          if (!nativeCheckResult.available) {
+            setView("native-install-confirm");
+            return;
+          }
+          setNativeAutoInstallApproved(false);
+          setTestModeIndex(0);
+          setSelectedTestPersona("standard");
+          setView("native-mode");
+        }
+        break;
+
+      case "native-install-confirm":
+        if (key.escape || input === "b" || input === "n") { setView("native-check"); return; }
+        if (key.return || input === "y") {
+          setNativeAutoInstallApproved(true);
+          setTestModeIndex(0);
+          setSelectedTestPersona("standard");
+          setView("native-mode");
+        }
+        break;
+
+      // ── Native: Persona select (reuses test-mode pattern) ──
+      case "native-mode":
+        if (key.escape || input === "b") {
+          setView(nativeCheckResult?.available ? "native-check" : "native-install-confirm");
+          return;
+        }
+        if (key.upArrow) setTestModeIndex((p) => Math.max(0, p - 1));
+        if (key.downArrow) setTestModeIndex((p) => Math.min(TEST_PERSONAS.length - 1, p + 1));
+        if (key.return) {
+          setSelectedTestPersona(TEST_PERSONAS[testModeIndex].id);
+          setView("native-url");
+        }
+        break;
+
+      // ── Native: Running ──
+      case "native-running":
+        if (testReport || testError) {
+          if (key.return || key.escape || input === "b") goToDashboard();
+        }
+        break;
+
       // ── Confirm clear reports ──
       case "confirm-clear":
         if (input === "y") { clearAllReports(); setView("dashboard"); return; }
@@ -455,6 +553,12 @@ export function App({ mode, initProvider }: AppProps) {
       case "notes": loadNotes(); break;
       case "settings": setSettingEditing(null); setView("settings"); break;
       case "clear-reports": setConfirmClearReports(true); setView("confirm-clear"); break;
+      case "native":
+        setNativePlatformIndex(0);
+        setNativeCheckResult(null);
+        setNativeAutoInstallApproved(false);
+        setView("native-platform");
+        break;
     }
   }
 
@@ -874,6 +978,272 @@ export function App({ mode, initProvider }: AppProps) {
         </>
       )}
 
+      {/* ── Native: Platform Select ── */}
+      {view === "native-platform" && (
+        <>
+          <Header subtitle="Native App Test" />
+          <Box flexDirection="column" paddingX={2} gap={1}>
+            <Text color="greenBright" bold>◆ Choose a platform to test on:</Text>
+            <Box flexDirection="column" marginY={1}>
+              {NATIVE_PLATFORMS.map((p, i) => (
+                <Box key={p.id} gap={1}>
+                  <Text color={i === nativePlatformIndex ? "greenBright" : "green"}>
+                    {i === nativePlatformIndex ? " ▸ " : "   "}
+                  </Text>
+                  <Text color={i === nativePlatformIndex ? "greenBright" : "green"} bold={i === nativePlatformIndex}>
+                    {p.icon} {p.label}
+                  </Text>
+                  <Text color="green" dimColor>— {p.description}</Text>
+                </Box>
+              ))}
+            </Box>
+            <Box marginTop={1} gap={2}>
+              <Text color="green" dimColor>[↑↓] Select platform</Text>
+              <Text color="green" dimColor>[Enter] Continue</Text>
+              <Text color="green" dimColor>[Esc] Back</Text>
+            </Box>
+          </Box>
+        </>
+      )}
+
+      {/* ── Native: Prerequisite Check ── */}
+      {view === "native-check" && (
+        <>
+          <Header subtitle={`Native App Test · ${nativePlatform === "android" ? "🤖 Android" : "🍎 iOS"}`} />
+          <Box flexDirection="column" paddingX={2} gap={1}>
+            {nativeCheckLoading && (
+              <Text color="greenBright">⏳ Checking prerequisites...</Text>
+            )}
+            {nativeCheckResult && (
+              <>
+                <Text color="greenBright" bold>◆ Prerequisite Check:</Text>
+                <Box flexDirection="column" marginY={1}>
+                  {nativeCheckResult.issues.map((issue, i) => (
+                    <Box key={i} gap={1} paddingLeft={1}>
+                      <Text color={issue.passed ? "green" : "redBright"}>
+                        {issue.passed ? "✔" : "✘"} {issue.check}
+                      </Text>
+                      {!issue.passed && issue.hint && (
+                        <Text color="yellow" dimColor>→ {issue.hint}</Text>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+                {nativeCheckResult.devices.length > 0 && (
+                  <Box flexDirection="column" marginTop={1}>
+                    <Text color="greenBright" bold>Available Devices:</Text>
+                    {nativeCheckResult.devices.slice(0, 5).map((d, i) => (
+                      <Box key={i} paddingLeft={2} gap={1}>
+                        <Text color="green">• {d.name}</Text>
+                        <Text color="green" dimColor>({d.state})</Text>
+                      </Box>
+                    ))}
+                    {nativeCheckResult.devices.length > 5 && (
+                      <Box paddingLeft={2}><Text color="green" dimColor>...and {nativeCheckResult.devices.length - 5} more</Text></Box>
+                    )}
+                  </Box>
+                )}
+                {nativeCheckResult.canProceed ? (
+                  <Box marginTop={1} gap={2}>
+                    <Text color="green" dimColor>
+                      {nativeCheckResult.available
+                        ? "[Enter] Continue to test setup"
+                        : "[Enter] Review auto-install"}
+                    </Text>
+                    <Text color="green" dimColor>[Esc] Back</Text>
+                  </Box>
+                ) : (
+                  <Box flexDirection="column" marginTop={1}>
+                    <Text color="redBright" bold>✘ Cannot proceed — fix the issues above first.</Text>
+                    <Box marginTop={1} gap={2}>
+                      <Text color="green" dimColor>[Esc] Back</Text>
+                    </Box>
+                  </Box>
+                )}
+              </>
+            )}
+          </Box>
+        </>
+      )}
+
+      {view === "native-install-confirm" && nativeCheckResult && (
+        <>
+          <Header subtitle={`Native App Test · ${nativePlatform === "android" ? "🤖 Android" : "🍎 iOS"}`} />
+          <Box flexDirection="column" paddingX={2} gap={1}>
+            <Text color="yellowBright" bold>◆ Native automation install required</Text>
+            <Text color="green" dimColor>
+              GetWired can install the missing native automation tools before the test run starts.
+            </Text>
+            <Box flexDirection="column" marginY={1}>
+              {nativeCheckResult.issues
+                .filter((issue) => !issue.passed && issue.autoFixable)
+                .map((issue, i) => (
+                  <Box key={i} gap={1} paddingLeft={1}>
+                    <Text color="yellow">• {issue.check}</Text>
+                  </Box>
+                ))}
+            </Box>
+            <Text color="green" dimColor>
+              The install may take a few minutes and requires network access.
+            </Text>
+            <Box marginTop={1} gap={2}>
+              <Text color="green" dimColor>[Y / Enter] Auto-install and continue</Text>
+              <Text color="green" dimColor>[N / Esc] Back</Text>
+            </Box>
+          </Box>
+        </>
+      )}
+
+      {/* ── Native: Mode Select (reuses test-mode pattern) ── */}
+      {view === "native-mode" && (
+        <>
+          <Header subtitle={`Native App Test · ${nativePlatform === "android" ? "🤖 Android" : "🍎 iOS"}`} />
+          <Box flexDirection="column" paddingX={2} gap={1}>
+            <Text color="greenBright" bold>◆ Choose the kind of test run:</Text>
+            <Box flexDirection="column" marginY={1}>
+              {TEST_PERSONAS.map((persona, i) => (
+                <Box key={persona.id} gap={1}>
+                  <Text color={i === testModeIndex ? "greenBright" : "green"}>
+                    {i === testModeIndex ? " ▸ " : "   "}
+                  </Text>
+                  <Text color={i === testModeIndex ? "greenBright" : "green"} bold={i === testModeIndex}>
+                    {persona.label}
+                  </Text>
+                  <Text color="green" dimColor>— {persona.description}</Text>
+                </Box>
+              ))}
+            </Box>
+            <Box marginTop={1} gap={2}>
+              <Text color="green" dimColor>[↑↓] Select mode</Text>
+              <Text color="green" dimColor>[Enter] Continue</Text>
+              <Text color="green" dimColor>[Esc] Back</Text>
+            </Box>
+          </Box>
+        </>
+      )}
+
+      {/* ── Native: URL/Scope Input ── */}
+      {view === "native-url" && (
+        <>
+          <Header subtitle={`Native App Test · ${nativePlatform === "android" ? "🤖 Android" : "🍎 iOS"} · ${getTestPersonaLabel(selectedTestPersona)}`} />
+          <Box flexDirection="column" paddingX={2} gap={1}>
+            {getConfiguredLocalUrl() && (
+              <Text color="green" dimColor>Target: {getConfiguredLocalUrl()}</Text>
+            )}
+            <Text color="greenBright" bold>{getTestPersonaPrompt(selectedTestPersona)}</Text>
+            <Text color="green" dimColor>{getTestPersonaDescription(selectedTestPersona)}</Text>
+            <TextInput
+              label="Scope ▸ "
+              placeholder="e.g. login flow, checkout, forms, or http://localhost:3000"
+              onSubmit={(scope) => {
+                const trimmed = scope.trim();
+                const isUrl = trimmed.startsWith("http://") || trimmed.startsWith("https://");
+                if (isUrl && !isLocalAppUrl(trimmed)) {
+                  resetTestState();
+                  setTestUrl(trimmed);
+                  setActiveTestPersona(selectedTestPersona);
+                  setTestPhase("error");
+                  setTestError(getLocalAppUrlError("The test URL"));
+                  setView("native-running");
+                  return;
+                }
+                const url = isUrl ? trimmed : getConfiguredLocalUrl();
+                const testScope = isUrl ? undefined : (trimmed || undefined);
+                resetTestState();
+                setTestUrl(url);
+                setActiveTestPersona(selectedTestPersona);
+                setView("native-running");
+                runNativeTestSession(
+                  process.cwd(),
+                  {
+                    url: url || undefined,
+                    scope: testScope,
+                    persona: selectedTestPersona,
+                    nativePlatform,
+                    autoInstallAppium: nativeAutoInstallApproved,
+                  },
+                  {
+                    onPhaseChange: (p, msg) => { setTestPhase(p); setTestPhaseMsg(msg); },
+                    onStepUpdate: (s) => setTestSteps([...s]),
+                    onFinding: (f) => setTestFindings((prev) => [...prev, f]),
+                    onLog: (msg) => setTestLogs((prev) => [...prev, msg].slice(-10)),
+                    onProviderOutput: appendProviderOutput,
+                  },
+                )
+                  .then((r) => setTestReport(r))
+                  .catch((err) => setTestError(String(err)));
+              }}
+              onCancel={() => setView("native-mode")}
+            />
+            <Box marginTop={1} gap={2}>
+              <Text color="green" dimColor>[Enter] Start testing</Text>
+              <Text color="green" dimColor>[Esc] Back to mode select</Text>
+            </Box>
+          </Box>
+        </>
+      )}
+
+      {/* ── Native: Running (Split Pane — reuses test-running pattern) ── */}
+      {view === "native-running" && (
+        <>
+          <Header subtitle={
+            testUrl
+              ? `Native App Test · ${nativePlatform === "android" ? "🤖 Android" : "🍎 iOS"} · ${getTestPersonaLabel(activeTestPersona)} · ${testUrl}`
+              : `Native App Test · ${nativePlatform === "android" ? "🤖 Android" : "🍎 iOS"} · ${getTestPersonaLabel(activeTestPersona)}`
+          } />
+          <StatusBar status={statusMap[testPhase] ?? "testing"} message={testPhaseMsg} />
+          <Box flexDirection="row" marginY={1} minHeight={20} width="100%">
+            <Box flexDirection="column" width="50%" flexGrow={0} flexShrink={0}>
+              {testSteps.length > 0 && (
+                <TestProgress steps={testSteps} currentStep={Math.max(0, testSteps.findIndex((s) => s.status === "running"))} />
+              )}
+              {testFindings.length > 0 && (
+                <Box flexDirection="column" paddingX={1} marginTop={1}>
+                  <Text color="greenBright" bold>── Findings ({testFindings.length}) ──</Text>
+                  {testFindings.slice(-6).map((f, i) => (
+                    <Box key={i} gap={1} paddingLeft={1}>
+                      <Text color={f.severity === "critical" || f.severity === "high" ? "redBright" : "yellow"}>
+                        {f.severity === "critical" || f.severity === "high" ? "✘" : "⚠"} [{f.severity}] {f.title.slice(0, 40)}
+                      </Text>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+              {testReport && (
+                <Box flexDirection="column" paddingX={1} marginTop={1}>
+                  <Text color="greenBright" bold>✔ Testing Complete</Text>
+                  <Text color="green">
+                    {testReport.summary.passed} passed · {testReport.summary.failed} failed · {testReport.summary.warnings} warnings
+                  </Text>
+                  <Text color="green" dimColor>
+                    {testReport.summary.duration}ms · .getwired/reports/{testReport.id}/{testReport.id}.json
+                  </Text>
+                </Box>
+              )}
+              {testError && (
+                <Box flexDirection="column" paddingX={1} marginTop={1}>
+                  <Text color="redBright">Error: {testError.slice(0, 120)}</Text>
+                </Box>
+              )}
+            </Box>
+            <Box width="50%" flexGrow={0} flexShrink={0}>
+              <ProviderStream
+                output={providerOutput}
+                providerName={settings?.provider}
+                isStreaming={!testReport && !testError && testPhase !== "done" && testPhase !== "error"}
+              />
+            </Box>
+          </Box>
+          <Box paddingX={2} gap={2}>
+            {(testReport || testError) ? (
+              <Text color="green" dimColor>[Enter] Back to dashboard</Text>
+            ) : (
+              <Text color="green" dimColor>[Ctrl+C] Cancel</Text>
+            )}
+          </Box>
+        </>
+      )}
+
       {/* ── Reports List ── */}
       {view === "reports-list" && (
         <>
@@ -1139,11 +1509,17 @@ export function App({ mode, initProvider }: AppProps) {
 
 const MENU_ITEMS = [
   { label: "Run Tests", description: "Tell me what to test — I'll try to break it", hotkey: "t", action: "test" },
+  { label: "Native App Test", description: "Test on real Android/iOS emulators", hotkey: "m", action: "native" },
   { label: "Regression Check", description: "Test against a commit or PR", hotkey: "r", action: "regression" },
   { label: "View Reports", description: "Browse past test reports", hotkey: "v", action: "reports" },
   { label: "Project Memory", description: "View learned project context", hotkey: "n", action: "notes" },
   { label: "Settings", description: "Configure provider, devices & more", hotkey: "s", action: "settings" },
   { label: "Clear Reports", description: "Delete all reports and screenshots", hotkey: "c", action: "clear-reports" },
+];
+
+const NATIVE_PLATFORMS = [
+  { id: "android", label: "Android", icon: "🤖", description: "Test on Android Emulator (requires Android SDK)" },
+  { id: "ios", label: "iOS", icon: "🍎", description: "Test on iOS Simulator (requires Xcode, macOS only)" },
 ];
 
 const SETTINGS_SECTIONS = [

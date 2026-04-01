@@ -68,6 +68,10 @@ npx getwired init --provider auggie
 2. **Test** — Your chosen AI explores your app like a chaotic human user
 3. **Report** — Detailed HTML reports with screenshots and bug descriptions saved to `.getwired/reports/`
 
+## Thanks
+
+Special thanks to [Appium](https://github.com/appium/appium) for the open-source mobile automation stack that powers native simulator and emulator testing in GetWired.
+
 ## License
 
 MIT
