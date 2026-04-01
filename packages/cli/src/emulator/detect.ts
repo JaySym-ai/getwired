@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { PrerequisiteCheck, PrerequisiteIssue, EmulatorDevice } from "./types.js";
 import { getAndroidSdkInfo } from "./android-sdk.js";
-import { detectAppiumAutomationStack } from "./appium.js";
+import { hasAxe } from "./ios-simulator.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -43,20 +43,6 @@ export async function checkAndroidPrerequisites(): Promise<PrerequisiteCheck> {
     check: androidSdk.sdkSource ? `Android SDK root (${androidSdk.sdkSource})` : "Android SDK root",
     passed: !!androidSdk.sdkRoot,
     hint: androidSdk.sdkRoot ? undefined : "Install Android Studio or set ANDROID_HOME to your SDK path",
-  });
-
-  const appium = await detectAppiumAutomationStack("android");
-  issues.push({
-    check: "Appium CLI",
-    passed: appium.appiumInstalled,
-    hint: appium.appiumInstalled ? undefined : "GetWired can auto-install Appium when you start a native run",
-    autoFixable: !appium.appiumInstalled,
-  });
-  issues.push({
-    check: "Appium UiAutomator2 driver",
-    passed: appium.driverInstalled,
-    hint: appium.driverInstalled ? undefined : "GetWired can auto-install the UiAutomator2 driver when you start a native run",
-    autoFixable: !appium.driverInstalled,
   });
 
   // List AVDs
@@ -133,18 +119,12 @@ export async function checkIosPrerequisites(): Promise<PrerequisiteCheck> {
     hint: hasSimctl ? undefined : "Run: xcode-select --install",
   });
 
-  const appium = await detectAppiumAutomationStack("ios");
+  // Check AXe CLI for native interaction (tap, swipe, type)
+  const axeInstalled = await hasAxe();
   issues.push({
-    check: "Appium CLI",
-    passed: appium.appiumInstalled,
-    hint: appium.appiumInstalled ? undefined : "GetWired can auto-install Appium when you start a native run",
-    autoFixable: !appium.appiumInstalled,
-  });
-  issues.push({
-    check: "Appium XCUITest driver",
-    passed: appium.driverInstalled,
-    hint: appium.driverInstalled ? undefined : "GetWired can auto-install the XCUITest driver when you start a native run",
-    autoFixable: !appium.driverInstalled,
+    check: "AXe CLI (native touch/type/swipe)",
+    passed: axeInstalled,
+    hint: axeInstalled ? undefined : "Install AXe: brew tap cameroncooke/axe && brew install axe",
   });
 
   // Parse simulator devices

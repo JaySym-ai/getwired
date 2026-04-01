@@ -8,6 +8,11 @@ const execFileAsync = promisify(execFile);
 const DEFAULT_TIMEOUT = 30_000;
 const BOOT_TIMEOUT = 120_000;
 
+export interface AndroidAppLaunchResult {
+  packageName: string;
+  output: string;
+}
+
 async function exec(cmd: string, args: string[], timeout = DEFAULT_TIMEOUT): Promise<string> {
   const { stdout } = await execFileAsync(cmd, args, { encoding: "utf-8", timeout });
   return stdout.trim();
@@ -19,6 +24,44 @@ function execAdb(args: string[], timeout = DEFAULT_TIMEOUT): Promise<string> {
 
 function getEmulatorPath(): string {
   return requireAndroidTool("emulator");
+}
+
+async function launchPackage(packageName: string, deviceId?: string, activity?: string): Promise<string> {
+  const args = deviceId ? ["-s", deviceId] : [];
+  if (activity) {
+    const qualifiedActivity = activity.includes("/") ? activity : `${packageName}/${activity}`;
+    return execAdb([...args, "shell", "am", "start", "-n", qualifiedActivity]);
+  }
+  return execAdb([...args, "shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1"]);
+}
+
+async function listInstalledPackages(deviceId?: string): Promise<string[]> {
+  const args = deviceId ? ["-s", deviceId] : [];
+  const output = await execAdb([...args, "shell", "pm", "list", "packages"], 10_000);
+  return output
+    .split("\n")
+    .map((line) => line.replace(/^package:/, "").trim())
+    .filter(Boolean);
+}
+
+async function findAlternativePackages(packageName: string, deviceId?: string): Promise<string[]> {
+  const installedPackages = await listInstalledPackages(deviceId);
+  const exactMatch = installedPackages.includes(packageName) ? [packageName] : [];
+  const rankedVariants = installedPackages
+    .filter((candidate) => candidate !== packageName)
+    .filter((candidate) => candidate.startsWith(`${packageName}.`) || packageName.startsWith(`${candidate}.`))
+    .sort((left, right) => {
+      const testBias = Number(isLikelyTestPackage(left)) - Number(isLikelyTestPackage(right));
+      return testBias !== 0 ? testBias : left.length - right.length;
+    });
+  return [...exactMatch, ...rankedVariants];
+}
+
+function isLikelyTestPackage(packageName: string): boolean {
+  return packageName.endsWith(".test")
+    || packageName.endsWith(".androidTest")
+    || packageName.includes(".test.")
+    || packageName.includes(".androidTest.");
 }
 
 // ─── Device Discovery ────────────────────────────────────────
@@ -73,13 +116,22 @@ export async function openUrl(url: string, deviceId?: string): Promise<string> {
   return execAdb([...args, "shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", url]);
 }
 
-export async function launchApp(packageName: string, deviceId?: string, activity?: string): Promise<string> {
-  const args = deviceId ? ["-s", deviceId] : [];
-  if (activity) {
-    const qualifiedActivity = activity.includes("/") ? activity : `${packageName}/${activity}`;
-    return execAdb([...args, "shell", "am", "start", "-n", qualifiedActivity]);
+export async function launchApp(packageName: string, deviceId?: string, activity?: string): Promise<AndroidAppLaunchResult> {
+  try {
+    const output = await launchPackage(packageName, deviceId, activity);
+    return { packageName, output };
+  } catch (error) {
+    const alternatives = await findAlternativePackages(packageName, deviceId).catch(() => []);
+    for (const candidate of alternatives) {
+      try {
+        const output = await launchPackage(candidate, deviceId, activity);
+        return { packageName: candidate, output };
+      } catch {
+        // try the next installed package candidate
+      }
+    }
+    throw error;
   }
-  return execAdb([...args, "shell", "monkey", "-p", packageName, "-c", "android.intent.category.LAUNCHER", "1"]);
 }
 
 export async function openDeepLink(url: string, packageName: string, deviceId?: string): Promise<string> {

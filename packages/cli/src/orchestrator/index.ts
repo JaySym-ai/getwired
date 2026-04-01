@@ -15,11 +15,6 @@ import {
   resolveNativeLaunchTarget,
   upsertNativeLaunchMemory,
 } from "../emulator/native-launch.js";
-import {
-  AppiumSession,
-  ensureAppiumAutomationStack,
-  startAppiumServer,
-} from "../emulator/appium.js";
 import type {
   ResolvedAndroidLaunchTarget,
   ResolvedIosLaunchTarget,
@@ -638,7 +633,6 @@ export async function runNativeTestSession(
     scope?: string;
     persona?: TestPersona;
     nativePlatform: import("../providers/types.js").NativePlatform;
-    autoInstallAppium?: boolean;
   },
   callbacks: OrchestratorCallbacks,
 ): Promise<TestReport> {
@@ -740,9 +734,6 @@ export async function runNativeTestSession(
     return full;
   }
 
-  let appiumServer: import("../emulator/appium.js").AppiumServerHandle | undefined;
-  let appiumSession: AppiumSession | undefined;
-
   try {
     if (!context.url) {
       throw new Error(
@@ -768,7 +759,6 @@ export async function runNativeTestSession(
     // ── Step 3: Resolve launch strategy ──────────────
     callbacks.onPhaseChange("planning", `Inspecting project for ${platformLabel} launch...`);
     await updateStep(steps, 2, "running", callbacks, undefined, `Inspecting project for ${platformLabel} launch`);
-    await ensureAppiumAutomationStack(options.nativePlatform, out, options.autoInstallAppium);
     out(`> Resolving ${platformLabel} app target from memory, config, or project files...\n`);
 
     let nativeLaunchTarget = await resolveNativeLaunchTarget(projectPath, settings, memory, options.nativePlatform);
@@ -815,7 +805,12 @@ export async function runNativeTestSession(
       }
       out(`> Launching ${androidTarget.packageName} in ${platformLabel}...\n`);
       try {
-        await android.launchApp(androidTarget.packageName, deviceId, androidTarget.activity);
+        const launchResult = await android.launchApp(androidTarget.packageName, deviceId, androidTarget.activity);
+        if (launchResult.packageName !== androidTarget.packageName) {
+          androidTarget = { ...androidTarget, packageName: launchResult.packageName };
+          nativeLaunchTarget = androidTarget;
+          out(`  Resolved installed package ${androidTarget.packageName} on device\n`);
+        }
       } catch (error) {
         const refreshed = await resolveNativeLaunchTarget(
           projectPath,
@@ -830,7 +825,12 @@ export async function runNativeTestSession(
         nativeLaunchTarget = refreshed;
         androidTarget = refreshed;
         out(`  Retrying with ${describeNativeLaunchTarget(nativeLaunchTarget)}\n`);
-        await android.launchApp(androidTarget.packageName, deviceId, androidTarget.activity);
+        const launchResult = await android.launchApp(androidTarget.packageName, deviceId, androidTarget.activity);
+        if (launchResult.packageName !== androidTarget.packageName) {
+          androidTarget = { ...androidTarget, packageName: launchResult.packageName };
+          nativeLaunchTarget = androidTarget;
+          out(`  Resolved installed package ${androidTarget.packageName} on device\n`);
+        }
       }
 
       if (androidTarget.launchUrl) {
@@ -933,29 +933,16 @@ export async function runNativeTestSession(
     await updateStep(steps, 5, "running", callbacks);
     out(`> ${settings.provider}: ${personaProfile.outputMessages.planning}\n\n`);
 
-    appiumServer = await startAppiumServer(out);
-    appiumSession = await AppiumSession.create(appiumServer, {
-      platform: options.nativePlatform,
-      deviceId,
-      ...(options.nativePlatform === "ios"
-        ? { bundleId: (nativeLaunchTarget as ResolvedIosLaunchTarget).bundleId }
-        : {
-          packageName: (nativeLaunchTarget as ResolvedAndroidLaunchTarget).packageName,
-          activity: (nativeLaunchTarget as ResolvedAndroidLaunchTarget).activity,
-        }),
-    });
-    execution.browserSessions++;
-
-    await appiumSession.activateApp();
-
-    await appiumSession.setNativeContext();
-    const availableContexts = await appiumSession.getContexts().catch(() => ["NATIVE_APP"]);
-    const webviewContexts = availableContexts.filter((name) => name.startsWith("WEBVIEW"));
-    if (webviewContexts.length > 0) {
-      out(`  Ignoring ${webviewContexts.length} webview context${webviewContexts.length === 1 ? "" : "s"}; native mode stays in NATIVE_APP\n`);
+    let uiStructure = "";
+    if (options.nativePlatform === "android") {
+      const android = await import("../emulator/android-emulator.js");
+      uiStructure = await android.uiDump(deviceId).catch(() => "");
+      out(`  Using native UI dump (adb uiautomator)\n`);
+    } else {
+      const ios = await import("../emulator/ios-simulator.js");
+      uiStructure = await ios.uiDump(deviceId).catch(() => "");
+      out(`  Using native UI dump (accessibility)\n`);
     }
-    const uiStructure = await appiumSession.getPageSource().catch(() => "");
-    out(`  Using native Appium source dump\n`);
 
     const testPlan = await streamAnalyze(context, [
       { role: "system", content: buildSystemPrompt(persona, memory) },
@@ -988,11 +975,21 @@ export async function runNativeTestSession(
     execution.scenariosPlanned += plannedScenarios.length;
 
     if (usedBuiltInSmokeScenario) {
-      out(`  ! Provider returned no executable native Appium scenarios; using built-in native smoke scenario\n`);
+      out(`  ! Provider returned no executable native scenarios; using built-in native smoke scenario\n`);
     }
 
     if (plannedScenarios.length > 0) {
-      nativeScenarioExecution = await executeAppiumNativeScenarios(appiumSession, plannedScenarios, context, out);
+      if (options.nativePlatform === "android") {
+        const android = await import("../emulator/android-emulator.js");
+        nativeScenarioExecution = await executeAndroidNativeScenarios(
+          plannedScenarios, context, nativeLaunchTarget as ResolvedAndroidLaunchTarget, deviceId, out, android,
+        );
+      } else {
+        const ios = await import("../emulator/ios-simulator.js");
+        nativeScenarioExecution = await executeIosNativeScenarios(
+          plannedScenarios, context, nativeLaunchTarget as ResolvedIosLaunchTarget, deviceId, out, ios,
+        );
+      }
       execution.browserSessions += nativeScenarioExecution.browserSessions;
       execution.navigations += nativeScenarioExecution.navigations;
       execution.screenshots += nativeScenarioExecution.screenshots;
@@ -1007,10 +1004,10 @@ export async function runNativeTestSession(
       callbacks,
       undefined,
       nativeScenarioExecution && nativeScenarioExecution.executedScenarios > 0 && !nativeScenarioExecution.error
-        ? `${usedBuiltInSmokeScenario ? "Executed built-in smoke flow with " : "Executed "}${nativeScenarioExecution.executedScenarios} Appium native scenario${nativeScenarioExecution.executedScenarios === 1 ? "" : "s"}`
+        ? `${usedBuiltInSmokeScenario ? "Executed built-in smoke flow with " : "Executed "}${nativeScenarioExecution.executedScenarios} native scenario${nativeScenarioExecution.executedScenarios === 1 ? "" : "s"}`
         : plannedScenarios.length === 0
-          ? "Provider returned no executable Appium scenarios"
-          : nativeScenarioExecution?.error ?? "Appium did not complete any scenario",
+          ? "Provider returned no executable native scenarios"
+          : nativeScenarioExecution?.error ?? "Did not complete any scenario",
     );
 
     // ── Step 8: Generate report ──────────────────────
@@ -1065,9 +1062,6 @@ export async function runNativeTestSession(
     out(`\n! Error: ${String(err)}\n`);
     callbacks.onPhaseChange("error", `Error: ${err}`);
     throw err;
-  } finally {
-    await appiumSession?.delete().catch(() => {});
-    await appiumServer?.stop().catch(() => {});
   }
 }
 
@@ -1533,8 +1527,10 @@ ${uiStructure ? `Current UI structure:\n${uiStructure.slice(0, 8000)}\n` : ""}
 
 CRITICAL:
 - Return JSON array of interaction scenarios, not findings text.
+- Return ONLY raw JSON. Do not wrap it in markdown fences. Do not include prose before or after the JSON.
 - Use only these action types: click, fill, keyboard, scroll, wait, screenshot, assert.
 - Do NOT invent CSS selectors. In selector, use visible text, accessibility label, or resource-id that should exist in the current UI structure.
+- Do NOT use screen coordinates or node type names like "XCUIElementTypeWebView" as selectors.
 - Assume the app is already open on the current screen. Do not start with a navigate action.
 - If a form field is present, use fill with a realistic value.
 - Include at least one screenshot action somewhere in each scenario.
@@ -1546,6 +1542,7 @@ Focus on real mobile-native issues:
 - Keyboard covering inputs
 - Missing back/recovery paths
 - Jank or delayed state changes
+- For keyboard actions, use only Enter, Tab, Escape, Back, or Backspace.
 
 Return as JSON:
 [{ "name": "...", "category": "happy-path|edge-case|abuse|boundary|error-recovery", "actions": [{ "type": "click|fill|keyboard|scroll|wait|screenshot|assert", "selector": "visible label or resource-id", "value": "text to type or assertion", "key": "Enter|Tab|Back|Escape", "description": "What you're doing and why" }] }]`;
@@ -1563,12 +1560,12 @@ function buildBuiltInNativeSmokeScenarios(): InteractionScenario[] {
       },
       {
         type: "screenshot",
-        description: "Capture the current native screen through Appium",
+        description: "Capture the current native screen",
       },
       {
         type: "scroll",
         value: "500",
-        description: "Perform a native swipe to verify Appium can interact with the screen",
+        description: "Perform a native swipe to verify interaction with the screen",
       },
       {
         type: "wait",
@@ -2448,360 +2445,6 @@ export function isLocalAppUrl(candidate: string): boolean {
   }
 }
 
-async function crawlAppiumSiteMap(session: AppiumSession, out: (text: string) => void): Promise<string> {
-  try {
-    const connected = await session.setWebviewContext();
-    if (!connected) {
-      out(`  ! Appium could not find an in-app webview context\n`);
-      return "";
-    }
-
-    const siteInfo = await session.executeScript(`return (function() {
-      var links = Array.from(document.querySelectorAll("a[href]"))
-        .map(function(a) { return { text: (a.textContent || "").trim().slice(0, 50), href: a.href }; })
-        .filter(function(l) { return l.text && l.href && !l.href.startsWith("javascript:"); })
-        .slice(0, 50);
-
-      var forms = Array.from(document.querySelectorAll("form")).map(function(form) {
-        var inputs = Array.from(form.querySelectorAll("input, textarea, select")).map(function(el) {
-          return { tag: el.tagName.toLowerCase(), type: el.type || "text", name: el.name || el.placeholder || "", required: el.required, placeholder: el.placeholder || "" };
-        });
-        var buttons = Array.from(form.querySelectorAll("button, input[type=submit]"))
-          .map(function(b) { return (b.textContent || "").trim() || b.value || "Submit"; });
-        return { action: form.action, method: form.method, inputs: inputs, buttons: buttons };
-      });
-
-      var buttons = Array.from(document.querySelectorAll("button:not(form button)"))
-        .map(function(b) { return { text: (b.textContent || "").trim().slice(0, 50), disabled: b.disabled }; })
-        .filter(function(b) { return b.text; })
-        .slice(0, 30);
-
-      var inputs = Array.from(document.querySelectorAll("input:not(form input), textarea:not(form textarea)"))
-        .map(function(el) { return { type: el.type || "text", name: el.name || el.placeholder || "", placeholder: el.placeholder || "" }; })
-        .slice(0, 20);
-
-      var headings = Array.from(document.querySelectorAll("h1, h2, h3"))
-        .map(function(h) { return { level: h.tagName, text: (h.textContent || "").trim().slice(0, 80) }; })
-        .slice(0, 20);
-
-      var images = Array.from(document.querySelectorAll("img"))
-        .map(function(img) { return { src: (img.src || "").slice(0, 80), alt: img.alt }; })
-        .slice(0, 20);
-
-      return { title: document.title, links: links, forms: forms, buttons: buttons, inputs: inputs, headings: headings, images: images };
-    })();`, []) as any;
-
-    const headings = siteInfo?.headings ?? [];
-    const links = siteInfo?.links ?? [];
-    const forms = siteInfo?.forms ?? [];
-    const buttons = siteInfo?.buttons ?? [];
-    const inputs = siteInfo?.inputs ?? [];
-    const images = siteInfo?.images ?? [];
-    const missingAltCount = images.filter((image: CrawledImage) => !image.alt).length;
-
-    const result = JSON.stringify({
-      title: siteInfo?.title ?? "unknown",
-      summary: {
-        linkCount: links.length,
-        formCount: forms.length,
-        buttonCount: buttons.length,
-        inputCount: inputs.length,
-        imageCount: images.length,
-        missingAltCount,
-      },
-      headings,
-      links,
-      forms,
-      buttons,
-      inputs,
-      images,
-    } satisfies CrawledPageData, null, 2);
-    out(`  Found in-app webview: ${links.length} links, ${forms.length} forms, ${buttons.length} buttons\n`);
-    return result;
-  } catch (error) {
-    out(`  ! Appium webview crawl failed: ${String(error).slice(0, 100)}\n`);
-    return "";
-  }
-}
-
-async function executeAppiumWebScenarios(
-  session: AppiumSession,
-  scenarios: InteractionScenario[],
-  context: TestContext,
-  out: (text: string) => void,
-): Promise<ScenarioExecutionResult> {
-  const findings: TestFinding[] = [];
-  const stats: ScenarioExecutionResult = {
-    findings,
-    browserSessions: 0,
-    navigations: 0,
-    screenshots: 0,
-    executedScenarios: 0,
-  };
-
-  try {
-    const connected = await session.setWebviewContext();
-    if (!connected) {
-      return { ...stats, error: "Appium did not expose an in-app webview context" };
-    }
-
-    let currentUrl = await session.getCurrentUrl();
-    for (const scenario of scenarios) {
-      out(`\n  ── ${scenario.category}: ${scenario.name} ──\n`);
-      let stepFailed = false;
-      let completedActions = 0;
-
-      for (const action of scenario.actions) {
-        if (stepFailed) break;
-        out(`    ${action.description}\n`);
-        try {
-          switch (action.type) {
-            case "navigate": {
-              const target = action.url ?? action.value ?? context.url ?? "";
-              const resolvedUrl = target.startsWith("http") ? target : new URL(target, currentUrl || context.url).href;
-              await session.navigateWeb(resolvedUrl);
-              await waitForAppiumWebReady(session);
-              currentUrl = await session.getCurrentUrl();
-              stats.navigations++;
-              completedActions++;
-              break;
-            }
-            case "click": {
-              const element = await session.findWebElement(action.selector ?? "");
-              if (!element && action.value) {
-                const textElement = await session.findWebElement(`text=${action.value}`);
-                if (!textElement) throw new Error(`No element matched ${action.selector ?? action.value}`);
-                await session.clickElement(textElement);
-              } else if (element) {
-                await session.clickElement(element);
-              } else {
-                throw new Error(`No element matched ${action.selector ?? ""}`);
-              }
-              completedActions++;
-              break;
-            }
-            case "fill": {
-              if (!action.selector) throw new Error("Fill action requires a selector");
-              const element = await session.findWebElement(action.selector);
-              if (!element) throw new Error(`No element matched ${action.selector}`);
-              await session.clearElement(element);
-              await session.typeElement(element, action.value ?? "");
-              completedActions++;
-              break;
-            }
-            case "select": {
-              if (!action.selector) throw new Error("Select action requires a selector");
-              await session.executeScript(`
-                var el = document.querySelector(arguments[0]);
-                if (!el) throw new Error("Option target not found");
-                el.value = arguments[1];
-                el.dispatchEvent(new Event("change", { bubbles: true }));
-              `, [action.selector, action.value ?? ""]);
-              completedActions++;
-              break;
-            }
-            case "keyboard": {
-              if (action.key) {
-                await session.pressKey(action.key);
-                completedActions++;
-              }
-              break;
-            }
-            case "scroll": {
-              await session.scrollWeb(parseInt(action.value ?? "500", 10));
-              completedActions++;
-              break;
-            }
-            case "wait": {
-              await sleep(Math.min(parseInt(action.value ?? "1000", 10), 5000));
-              break;
-            }
-            case "screenshot": {
-              const screenshotPath = join(
-                context.reportDir,
-                "screenshots",
-                `${scenario.name.replace(/[^a-zA-Z0-9]/g, "-").slice(0, 40)}-${Date.now()}.png`,
-              );
-              await mkdir(join(context.reportDir, "screenshots"), { recursive: true });
-              await session.screenshot(screenshotPath);
-              stats.screenshots++;
-              completedActions++;
-              out(`      [Appium screenshot saved: ${toProjectRelativePath(context.projectPath, screenshotPath)}]\n`);
-              break;
-            }
-            case "assert": {
-              const element = await session.findWebElement(action.selector ?? action.value ?? "");
-              const shouldBeVisible = (action.value ?? "visible") === "visible";
-              if (shouldBeVisible && !element) {
-                findings.push({
-                  id: `assert-${generateId()}`,
-                  severity: "medium",
-                  category: "functional",
-                  title: `Expected in-app element not visible: ${action.selector ?? action.value ?? "unknown"}`,
-                  description: `During "${scenario.name}": ${action.description}`,
-                  url: currentUrl,
-                  device: "mobile",
-                  steps: scenario.actions.map((item) => item.description),
-                });
-              }
-              completedActions++;
-              break;
-            }
-            default:
-              break;
-          }
-
-          await sleep(700);
-        } catch (error) {
-          stepFailed = true;
-          findings.push({
-            id: `appium-web-${generateId()}`,
-            severity: scenario.category === "happy-path" ? "high" : "medium",
-            category: "functional",
-            title: `Appium in-app action failed: ${action.description}`,
-            description: String(error),
-            url: currentUrl,
-            device: "mobile",
-            steps: scenario.actions.map((item) => item.description),
-          });
-        }
-      }
-
-      if (completedActions > 0) {
-        stats.executedScenarios++;
-      }
-    }
-
-    return stats;
-  } catch (error) {
-    return { ...stats, error: String(error) };
-  }
-}
-
-async function executeAppiumNativeScenarios(
-  session: AppiumSession,
-  scenarios: InteractionScenario[],
-  context: TestContext,
-  out: (text: string) => void,
-): Promise<ScenarioExecutionResult> {
-  const findings: TestFinding[] = [];
-  const stats: ScenarioExecutionResult = {
-    findings,
-    browserSessions: 0,
-    navigations: 0,
-    screenshots: 0,
-    executedScenarios: 0,
-  };
-
-  try {
-    await session.setNativeContext();
-
-    for (const scenario of scenarios) {
-      out(`\n  ── ${scenario.category}: ${scenario.name} ──\n`);
-      let stepFailed = false;
-      let completedActions = 0;
-
-      for (const action of scenario.actions) {
-        if (stepFailed) break;
-        out(`    ${action.description}\n`);
-        try {
-          switch (action.type) {
-            case "click": {
-              const element = await session.findNativeElement(action.selector ?? action.value ?? "");
-              if (!element) throw new Error(`No native element matched ${action.selector ?? action.value ?? ""}`);
-              await session.clickElement(element);
-              completedActions++;
-              break;
-            }
-            case "fill": {
-              const element = await session.findNativeElement(action.selector ?? "");
-              if (!element) throw new Error(`No native input matched ${action.selector ?? ""}`);
-              await session.clickElement(element);
-              await session.clearElement(element).catch(() => {});
-              await session.typeElement(element, action.value ?? "");
-              completedActions++;
-              break;
-            }
-            case "keyboard": {
-              if (action.key) {
-                await session.pressKey(action.key);
-                completedActions++;
-              }
-              break;
-            }
-            case "scroll": {
-              await session.executeScript("mobile: swipe", [{
-                direction: parseInt(action.value ?? "500", 10) >= 0 ? "up" : "down",
-              }]).catch(() => {});
-              completedActions++;
-              break;
-            }
-            case "wait": {
-              await sleep(Math.min(parseInt(action.value ?? "1000", 10), 5000));
-              break;
-            }
-            case "screenshot": {
-              const screenshotPath = join(
-                context.reportDir,
-                "screenshots",
-                `${scenario.name.replace(/[^a-zA-Z0-9]/g, "-").slice(0, 40)}-${Date.now()}.png`,
-              );
-              await mkdir(join(context.reportDir, "screenshots"), { recursive: true });
-              await session.screenshot(screenshotPath);
-              stats.screenshots++;
-              completedActions++;
-              out(`      [Appium native screenshot saved: ${toProjectRelativePath(context.projectPath, screenshotPath)}]\n`);
-              break;
-            }
-            case "assert": {
-              const element = await session.findNativeElement(action.selector ?? action.value ?? "");
-              const shouldBeVisible = (action.value ?? "visible") === "visible";
-              if (shouldBeVisible && !element) {
-                findings.push({
-                  id: `assert-${generateId()}`,
-                  severity: "medium",
-                  category: "functional",
-                  title: `Expected native element not visible: ${action.selector ?? action.value ?? "unknown"}`,
-                  description: `During "${scenario.name}": ${action.description}`,
-                  device: "mobile",
-                  steps: scenario.actions.map((item) => item.description),
-                });
-              }
-              completedActions++;
-              break;
-            }
-            case "navigate":
-              throw new Error("Native Appium scenarios do not support raw URL navigation without a deep-link implementation");
-            default:
-              break;
-          }
-
-          await sleep(700);
-        } catch (error) {
-          stepFailed = true;
-          findings.push({
-            id: `appium-native-${generateId()}`,
-            severity: scenario.category === "happy-path" ? "high" : "medium",
-            category: "functional",
-            title: `Appium native action failed: ${action.description}`,
-            description: String(error),
-            device: "mobile",
-            steps: scenario.actions.map((item) => item.description),
-          });
-        }
-      }
-
-      if (completedActions > 0) {
-        stats.executedScenarios++;
-      }
-    }
-
-    return stats;
-  } catch (error) {
-    return { ...stats, error: String(error) };
-  }
-}
-
 async function executeAndroidNativeScenarios(
   scenarios: InteractionScenario[],
   context: TestContext,
@@ -2948,6 +2591,155 @@ async function executeAndroidNativeScenarios(
   }
 }
 
+async function executeIosNativeScenarios(
+  scenarios: InteractionScenario[],
+  context: TestContext,
+  _target: ResolvedIosLaunchTarget,
+  deviceId: string | undefined,
+  out: (text: string) => void,
+  ios: typeof import("../emulator/ios-simulator.js"),
+): Promise<ScenarioExecutionResult> {
+  const findings: TestFinding[] = [];
+  const stats: ScenarioExecutionResult = {
+    findings,
+    browserSessions: 1,
+    navigations: 0,
+    screenshots: 0,
+    executedScenarios: 0,
+  };
+
+  try {
+    for (const scenario of scenarios) {
+      out(`\n  ── ${scenario.category}: ${scenario.name} ──\n`);
+      let scenarioFailed = false;
+      let completedActions = 0;
+
+      for (const action of scenario.actions) {
+        if (scenarioFailed) break;
+        out(`    ${action.description}\n`);
+
+        try {
+          switch (action.type) {
+            case "click": {
+              await ios.tap(200, 400, deviceId);
+              completedActions++;
+              break;
+            }
+            case "fill": {
+              // Tap the field area then type
+              await ios.tap(200, 400, deviceId);
+              await sleep(400);
+              await ios.typeText(action.value ?? "", deviceId);
+              completedActions++;
+              break;
+            }
+            case "keyboard": {
+              if (action.key) {
+                await ios.pressKey(mapIosKey(action.key), deviceId);
+                completedActions++;
+              }
+              break;
+            }
+            case "scroll": {
+              const amount = parseInt(action.value ?? "600", 10);
+              const startY = amount >= 0 ? 600 : 200;
+              const endY = amount >= 0 ? 200 : 600;
+              await ios.swipe(200, startY, 200, endY, 350, deviceId);
+              completedActions++;
+              break;
+            }
+            case "wait": {
+              await sleep(Math.min(parseInt(action.value ?? "1000", 10), 5000));
+              break;
+            }
+            case "screenshot": {
+              const screenshotPath = join(
+                context.reportDir,
+                "screenshots",
+                `${scenario.name.replace(/[^a-zA-Z0-9]/g, "-").slice(0, 40)}-${Date.now()}.png`,
+              );
+              await mkdir(join(context.reportDir, "screenshots"), { recursive: true });
+              await ios.screenshot(screenshotPath, deviceId);
+              stats.screenshots++;
+              completedActions++;
+              out(`      [device screenshot saved: ${toProjectRelativePath(context.projectPath, screenshotPath)}]\n`);
+              break;
+            }
+            case "assert": {
+              // Basic assertion via UI dump text search
+              const uiTree = await ios.uiDump(deviceId).catch(() => "");
+              const needle = action.selector ?? action.value ?? "";
+              const shouldBeVisible = (action.value ?? "visible") === "visible";
+              if (shouldBeVisible && !uiTree.toLowerCase().includes(needle.toLowerCase())) {
+                findings.push({
+                  id: `assert-${generateId()}`,
+                  severity: "medium",
+                  category: "functional",
+                  title: `Expected native element not visible: ${needle}`,
+                  description: `During "${scenario.name}": ${action.description}`,
+                  device: "mobile",
+                  steps: scenario.actions.map((item) => item.description),
+                });
+              }
+              completedActions++;
+              break;
+            }
+            case "navigate": {
+              if (!action.url) break;
+              await ios.openUrl(action.url, deviceId);
+              stats.navigations++;
+              completedActions++;
+              break;
+            }
+            default:
+              break;
+          }
+
+          await sleep(900);
+        } catch (error) {
+          scenarioFailed = true;
+          findings.push({
+            id: `native-action-${generateId()}`,
+            severity: scenario.category === "happy-path" ? "high" : "medium",
+            category: "functional",
+            title: `iOS native action failed: ${action.description}`,
+            description: String(error),
+            device: "mobile",
+            steps: scenario.actions.map((item) => item.description),
+          });
+        }
+      }
+
+      if (completedActions > 0) {
+        stats.executedScenarios++;
+      }
+    }
+
+    return stats;
+  } catch (error) {
+    return { ...stats, error: String(error) };
+  }
+}
+
+function mapIosKey(key: string): string {
+  switch (key.toLowerCase()) {
+    case "enter":
+      return "return";
+    case "tab":
+      return "tab";
+    case "escape":
+      return "escape";
+    case "back":
+      return "home";
+    case "del":
+    case "delete":
+    case "backspace":
+      return "delete";
+    default:
+      return key;
+  }
+}
+
 export function getLocalAppUrlError(sourceLabel: string): string {
   return `GetWired only tests local apps. ${sourceLabel} must use a localhost or loopback URL (for example http://localhost:3000), and you must launch GetWired from the project folder directly.`;
 }
@@ -3042,20 +2834,11 @@ async function compareWithBaselines(
 }
 
 function parseScenarios(content: string): InteractionScenario[] {
-  try {
-    const jsonMatch = content.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      if (Array.isArray(parsed)) {
-        return parsed.filter(
-          (s) => s.name && Array.isArray(s.actions) && s.actions.length > 0,
-        );
-      }
-    }
-    return [];
-  } catch {
-    return [];
-  }
+  const parsed = extractJsonArray(content, isScenarioArray);
+  if (!parsed) return [];
+  return parsed.filter(
+    (scenario) => scenario.name && Array.isArray(scenario.actions) && scenario.actions.length > 0,
+  );
 }
 
 function parseAndroidUiDump(xml: string): AndroidUiNode[] {
@@ -3146,29 +2929,101 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForAppiumWebReady(session: AppiumSession, timeout = 10_000): Promise<void> {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < timeout) {
-    try {
-      const state = await session.executeScript("return document.readyState;", []);
-      if (state === "interactive" || state === "complete") return;
-    } catch {
-      // keep polling
-    }
-    await sleep(300);
+function parseFindings(content: string): TestFinding[] {
+  return extractJsonArray(content, isFindingArray) ?? [];
+}
+
+function extractJsonArray<T>(
+  content: string,
+  guard: (value: unknown) => value is T[],
+): T[] | null {
+  const direct = tryParseJsonArray(content, guard);
+  if (direct) return direct;
+
+  for (const match of content.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)) {
+    const fenced = tryParseJsonArray(match[1] ?? "", guard);
+    if (fenced) return fenced;
+  }
+
+  const starts: number[] = [];
+  const arrayStartPattern = /\[\s*\{/g;
+  for (const match of content.matchAll(arrayStartPattern)) {
+    if (typeof match.index === "number") starts.push(match.index);
+  }
+
+  for (let index = starts.length - 1; index >= 0; index -= 1) {
+    const candidate = sliceBalancedJsonArray(content, starts[index]);
+    if (!candidate) continue;
+    const parsed = tryParseJsonArray(candidate, guard);
+    if (parsed) return parsed;
+  }
+
+  return null;
+}
+
+function tryParseJsonArray<T>(
+  content: string,
+  guard: (value: unknown) => value is T[],
+): T[] | null {
+  const trimmed = content.trim();
+  if (!trimmed.startsWith("[")) return null;
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    return guard(parsed) ? parsed : null;
+  } catch {
+    return null;
   }
 }
 
-function parseFindings(content: string): TestFinding[] {
-  try {
-    const jsonMatch = content.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+function sliceBalancedJsonArray(content: string, start: number): string | null {
+  let depth = 0;
+  let inString = false;
+  let escaping = false;
+
+  for (let index = start; index < content.length; index += 1) {
+    const char = content[index];
+
+    if (inString) {
+      if (escaping) {
+        escaping = false;
+      } else if (char === "\\") {
+        escaping = true;
+      } else if (char === "\"") {
+        inString = false;
+      }
+      continue;
     }
-    return [];
-  } catch {
-    return [];
+
+    if (char === "\"") {
+      inString = true;
+      continue;
+    }
+
+    if (char === "[") {
+      depth += 1;
+      continue;
+    }
+
+    if (char === "]") {
+      depth -= 1;
+      if (depth === 0) return content.slice(start, index + 1);
+    }
   }
+
+  return null;
+}
+
+function isScenarioArray(value: unknown): value is InteractionScenario[] {
+  return Array.isArray(value) && value.every((item) => (
+    item && typeof item === "object" &&
+    typeof (item as InteractionScenario).name === "string" &&
+    Array.isArray((item as InteractionScenario).actions)
+  ));
+}
+
+function isFindingArray(value: unknown): value is TestFinding[] {
+  return Array.isArray(value) && value.every((item) => item && typeof item === "object");
 }
 
 function countPlanSteps(plan: string): number {

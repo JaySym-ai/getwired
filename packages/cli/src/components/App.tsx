@@ -1160,7 +1160,6 @@ export function App({ mode, initProvider }: AppProps) {
                     scope: testScope,
                     persona: selectedTestPersona,
                     nativePlatform,
-                    autoInstallAppium: nativeAutoInstallApproved,
                   },
                   {
                     onPhaseChange: (p, msg) => { setTestPhase(p); setTestPhaseMsg(msg); },

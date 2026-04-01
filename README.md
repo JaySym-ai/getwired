@@ -70,7 +70,7 @@ npx getwired init --provider auggie
 
 ## Thanks
 
-Special thanks to [Appium](https://github.com/appium/appium) for the open-source mobile automation stack that powers native simulator and emulator testing in GetWired.
+Special thanks to [AXe](https://github.com/cameroncooke/AXe) for native iOS Simulator interaction, and the Android `adb` toolchain for powering native emulator testing in GetWired.
 
 ## License
 

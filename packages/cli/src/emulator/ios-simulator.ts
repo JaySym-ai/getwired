@@ -258,3 +258,79 @@ export async function diagnose(outputDir?: string): Promise<string> {
 export async function getBootStatus(udid: string): Promise<string> {
   return simctl(["bootstatus", udid, "-b"]);
 }
+
+// ─── AXe CLI: Touch, Type, Swipe, Gestures ─────────────────
+// AXe uses Apple's Accessibility APIs + HID injection for native interaction.
+// Install via: brew tap cameroncooke/axe && brew install axe
+
+async function axe(args: string[], timeout = DEFAULT_TIMEOUT): Promise<string> {
+  return exec("axe", args, timeout);
+}
+
+export async function hasAxe(): Promise<boolean> {
+  try {
+    await exec("which", ["axe"], 5_000);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function tap(x: number, y: number, udid?: string): Promise<string> {
+  const args = ["-x", String(Math.round(x)), "-y", String(Math.round(y))];
+  if (udid) args.push("--udid", udid);
+  return axe(["tap", ...args]);
+}
+
+export async function longPress(x: number, y: number, durationMs = 1000, udid?: string): Promise<string> {
+  const args = ["-x", String(Math.round(x)), "-y", String(Math.round(y)), "--duration", String(durationMs / 1000)];
+  if (udid) args.push("--udid", udid);
+  return axe(["tap", "--long-press", ...args]);
+}
+
+export async function swipe(
+  startX: number, startY: number, endX: number, endY: number, durationMs = 300, udid?: string,
+): Promise<string> {
+  const args = [
+    "--start-x", String(Math.round(startX)),
+    "--start-y", String(Math.round(startY)),
+    "--end-x", String(Math.round(endX)),
+    "--end-y", String(Math.round(endY)),
+    "--duration", String(durationMs / 1000),
+  ];
+  if (udid) args.push("--udid", udid);
+  return axe(["swipe", ...args]);
+}
+
+export async function typeText(text: string, udid?: string): Promise<string> {
+  const args = [text];
+  if (udid) args.push("--udid", udid);
+  return axe(["type", ...args]);
+}
+
+export async function gesture(name: string, udid?: string): Promise<string> {
+  const args = [name];
+  if (udid) args.push("--udid", udid);
+  return axe(["gesture", ...args]);
+}
+
+export async function pressKey(key: string, udid?: string): Promise<string> {
+  const args = [key];
+  if (udid) args.push("--udid", udid);
+  return axe(["key", ...args]);
+}
+
+// ─── UI Dump (Accessibility Tree) ───────────────────────────
+
+export async function uiDump(udid?: string): Promise<string> {
+  // Use accessibility inspector via simctl or axe to get the UI tree
+  // axe provides accessibility queries; fall back to simctl accessibility audit
+  try {
+    const args = udid ? ["--udid", udid] : [];
+    return await axe(["list", ...args]);
+  } catch {
+    // Fallback: use simctl's accessibility audit for a UI overview
+    const device = udid ?? "booted";
+    return simctl(["accessibility_audit", device]).catch(() => "");
+  }
+}

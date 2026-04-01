@@ -246,6 +246,8 @@ export async function resolveNativeLaunchTarget(
 ): Promise<ResolvedNativeLaunchTarget> {
   const memoryHints = parseNativeLaunchMemory(memory);
   const configHints = settings.native ?? { ios: {}, android: {} };
+  const cachedAndroidPackageName = normalizeAndroidPackageName(memoryHints.android.packageName);
+  const configuredAndroidPackageName = normalizeAndroidPackageName(configHints.android.packageName);
 
   if (!options?.skipCache) {
     if (platform === "ios" && memoryHints.ios.bundleId) {
@@ -260,10 +262,10 @@ export async function resolveNativeLaunchTarget(
       };
     }
 
-    if (platform === "android" && memoryHints.android.packageName) {
+    if (platform === "android" && cachedAndroidPackageName) {
       return {
         platform: "android",
-        packageName: memoryHints.android.packageName,
+        packageName: cachedAndroidPackageName,
         activity: memoryHints.android.activity ?? configHints.android.activity,
         launchCommand: memoryHints.android.launchCommand ?? configHints.android.launchCommand,
         launchUrl: memoryHints.android.launchUrl ?? configHints.android.launchUrl,
@@ -285,10 +287,10 @@ export async function resolveNativeLaunchTarget(
       };
     }
 
-    if (platform === "android" && configHints.android.packageName) {
+    if (platform === "android" && configuredAndroidPackageName) {
       return {
         platform: "android",
-        packageName: configHints.android.packageName,
+        packageName: configuredAndroidPackageName,
         activity: configHints.android.activity,
         launchCommand: configHints.android.launchCommand,
         launchUrl: configHints.android.launchUrl,
@@ -625,6 +627,13 @@ async function safeReadText(filePath: string): Promise<string> {
 
 function normalizeSlashes(value: string): string {
   return value.split("\\").join("/");
+}
+
+function normalizeAndroidPackageName(value?: string): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  if (/unknown/i.test(trimmed) || /needs verification/i.test(trimmed)) return undefined;
+  return /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/.test(trimmed) ? trimmed : undefined;
 }
 
 function toWorkingDirectory(projectPath: string, filePath: string): string {
