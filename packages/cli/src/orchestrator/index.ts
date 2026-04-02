@@ -2,7 +2,7 @@ import { readFile, writeFile, readdir, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join, relative } from "node:path";
-import { execSync } from "node:child_process";
+import { execSync, spawn, type ChildProcess } from "node:child_process";
 import { createConnection } from "node:net";
 import { getBrowserSession } from "../browser/session.js";
 import { ensureAgentBrowser } from "../providers/ensure-cli.js";
@@ -340,6 +340,9 @@ export async function runTestSession(
     await writeFile(join(context.reportDir, "debug.log"), debugLog).catch(() => {});
   };
 
+  // Track auto-started dev server so we can clean it up
+  let autoStartedServer: DevServerInfo | undefined;
+
   for (const ignoredSource of ignoredSources) {
     const warning = `Ignoring ${ignoredSource} because GetWired only tests local apps on localhost or loopback addresses.`;
     callbacks.onLog(warning);
@@ -374,9 +377,14 @@ export async function runTestSession(
 
   try {
     if (!context.url) {
-      throw new Error(
-        "No local dev server detected. Start your app from this project folder, then run GetWired against localhost (for example http://localhost:3000).",
-      );
+      autoStartedServer = await tryStartDevServer(projectPath, callbacks);
+      if (!autoStartedServer) {
+        throw new Error(
+          "No local dev server detected and could not auto-start one. Make sure your package.json has a \"dev\" or \"start\" script, or start your app manually and run GetWired against localhost (for example http://localhost:3000).",
+        );
+      }
+      context.url = autoStartedServer.url;
+      out(`> Auto-started dev server at ${autoStartedServer.url}\n`);
     }
 
     // ── Step 1: Scan project ───────────────────────────
@@ -704,6 +712,11 @@ export async function runTestSession(
     out(`> Debug log saved: ${runId}/debug.log\n`);
     callbacks.onPhaseChange("error", `Error: ${err}`);
     throw err;
+  } finally {
+    if (autoStartedServer) {
+      autoStartedServer.process.kill();
+      callbacks.onLog("Auto-started dev server stopped.");
+    }
   }
 }
 
@@ -4607,4 +4620,99 @@ async function detectProjectUrl(projectPath: string): Promise<string | undefined
   } catch { /* ignore parse errors */ }
 
   return undefined;
+}
+
+// ─── Auto-start dev server ─────────────────────────────
+interface DevServerInfo {
+  process: ChildProcess;
+  url: string;
+  port: number;
+}
+
+function getDevCommand(projectPath: string): { cmd: string; args: string[]; port: number } | undefined {
+  try {
+    const pkgPath = join(projectPath, "package.json");
+    if (!existsSync(pkgPath)) return undefined;
+    const pkg = JSON.parse(require("node:fs").readFileSync(pkgPath, "utf-8"));
+    const scripts = pkg.scripts ?? {};
+    const scriptName = scripts.dev ? "dev" : scripts.start ? "start" : undefined;
+    if (!scriptName) return undefined;
+
+    // Detect framework port
+    let port = 3000;
+    for (const hint of FRAMEWORK_HINTS) {
+      let found = false;
+      for (const file of hint.files) {
+        if (existsSync(join(projectPath, file))) {
+          port = hint.defaultPort;
+          found = true;
+          break;
+        }
+      }
+      if (found) break;
+    }
+
+    // Check for explicit port in the script
+    const script = scripts[scriptName] ?? "";
+    const portMatch = script.match(/(?:--port|-p)\s+(\d+)/);
+    if (portMatch) port = parseInt(portMatch[1], 10);
+
+    // Use the package manager's run command
+    const useYarn = existsSync(join(projectPath, "yarn.lock"));
+    const usePnpm = existsSync(join(projectPath, "pnpm-lock.yaml"));
+    const useBun = existsSync(join(projectPath, "bun.lockb")) || existsSync(join(projectPath, "bun.lock"));
+    const pm = useBun ? "bun" : usePnpm ? "pnpm" : useYarn ? "yarn" : "npm";
+
+    return { cmd: pm, args: ["run", scriptName], port };
+  } catch {
+    return undefined;
+  }
+}
+
+function waitForPort(port: number, timeoutMs = 30_000): Promise<boolean> {
+  const start = Date.now();
+  return new Promise((resolve) => {
+    const check = () => {
+      if (Date.now() - start > timeoutMs) return resolve(false);
+      isPortOpen(port).then((open) => {
+        if (open) return resolve(true);
+        setTimeout(check, 500);
+      });
+    };
+    check();
+  });
+}
+
+async function tryStartDevServer(
+  projectPath: string,
+  callbacks: OrchestratorCallbacks,
+): Promise<DevServerInfo | undefined> {
+  const devCmd = getDevCommand(projectPath);
+  if (!devCmd) return undefined;
+
+  callbacks.onLog(`No dev server detected — auto-starting: ${devCmd.cmd} ${devCmd.args.join(" ")} (port ${devCmd.port})`);
+
+  const child = spawn(devCmd.cmd, devCmd.args, {
+    cwd: projectPath,
+    stdio: "pipe",
+    detached: false,
+    env: { ...process.env, BROWSER: "none", PORT: String(devCmd.port) },
+  });
+
+  // Forward stderr/stdout to debug output
+  child.stdout?.on("data", (data: Buffer) => {
+    callbacks.onProviderOutput?.(`[dev-server] ${data.toString()}`);
+  });
+  child.stderr?.on("data", (data: Buffer) => {
+    callbacks.onProviderOutput?.(`[dev-server] ${data.toString()}`);
+  });
+
+  const ready = await waitForPort(devCmd.port);
+  if (!ready) {
+    child.kill();
+    return undefined;
+  }
+
+  callbacks.onLog(`Dev server is ready on port ${devCmd.port}`);
+  return { process: child, url: `http://localhost:${devCmd.port}`, port: devCmd.port };
 }
