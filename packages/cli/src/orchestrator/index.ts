@@ -1,5 +1,5 @@
 import { readFile, writeFile, readdir, mkdir } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join, relative } from "node:path";
 import { execSync, spawn, type ChildProcess } from "node:child_process";
@@ -79,6 +79,8 @@ import type {
   TestingProvider,
 } from "../providers/types.js";
 import type { GetwiredSettings } from "../config/settings.js";
+import { getPayloads, formatPayloadsForPrompt } from "../security/payloads.js";
+import type { SecurityPayload } from "../security/payloads.js";
 
 export type TestPhase =
   | "initializing"
@@ -490,7 +492,7 @@ export async function runTestSession(
     pageMap = await crawlSiteMap(context.url, out, settings.testing.showBrowser, ab);
 
     const testPlan = await streamAnalyze(context, [
-      { role: "system", content: buildSystemPrompt(persona, memory) },
+      { role: "system", content: buildSystemPrompt(persona, memory, settings) },
       { role: "user", content: buildReconPrompt(context, projectInfo, notes, pageMap) },
     ]);
     callbacks.onLog(`Test plan generated with ${countPlanSteps(testPlan)} items`);
@@ -567,8 +569,8 @@ export async function runTestSession(
     out(`\n> ${settings.provider}: ${personaProfile.outputMessages.scenarios}\n\n`);
 
     const allScenariosResult = await streamAnalyze(context, [
-      { role: "system", content: buildSystemPrompt(persona, memory) },
-      { role: "user", content: buildAllScenariosPrompt(context, testPlan, pageMap) },
+      { role: "system", content: buildSystemPrompt(persona, memory, settings) },
+      { role: "user", content: buildAllScenariosPrompt(context, testPlan, pageMap, settings) },
     ]);
 
     const allScenarios = parseScenarios(allScenariosResult);
@@ -611,7 +613,7 @@ export async function runTestSession(
 
     out(`\n> ${settings.provider}: ${personaProfile.outputMessages.accessibility}\n\n`);
     const a11yAiResult = await streamAnalyze(context, [
-      { role: "system", content: buildSystemPrompt(persona, memory) },
+      { role: "system", content: buildSystemPrompt(persona, memory, settings) },
       { role: "user", content: buildAccessibilityPrompt(context, pageMap) },
     ]);
     recordFindings(parseFindings(a11yAiResult));
@@ -932,7 +934,7 @@ export async function runDesktopTestSession(
       await updateStep(steps, 6, "failed", callbacks, undefined, "Skipped because the UI dump was not actionable");
     } else {
       const testPlan = await streamAnalyze(context, [
-        { role: "system", content: buildSystemPrompt(persona, memory) },
+        { role: "system", content: buildSystemPrompt(persona, memory, settings) },
         {
           role: "user",
           content: buildDesktopReconPrompt(context, projectInfo, notes, uiStructure, desktopLaunchTarget),
@@ -948,7 +950,7 @@ export async function runDesktopTestSession(
       out(`\n> ${settings.provider}: ${personaProfile.outputMessages.scenarios}\n\n`);
 
       const scenarioPlanResult = await streamAnalyze(context, [
-        { role: "system", content: buildSystemPrompt(persona, memory) },
+        { role: "system", content: buildSystemPrompt(persona, memory, settings) },
         {
           role: "user",
           content: buildDesktopScenariosPrompt(context, testPlan, uiStructure, desktopLaunchTarget),
@@ -1541,7 +1543,7 @@ export async function runNativeTestSession(
       }
       if (!testPlan) {
         testPlan = await streamAnalyze(context, [
-          { role: "system", content: buildSystemPrompt(persona, memory) },
+          { role: "system", content: buildSystemPrompt(persona, memory, settings) },
           {
             role: "user",
             content: automationMode === "hybrid"
@@ -1584,7 +1586,7 @@ export async function runNativeTestSession(
         let providerExplicitlyReturnedNoScenarios = false;
         let usedBuiltInSmokeScenario = false;
         const scenarioPlanResult = await streamAnalyze(context, [
-          { role: "system", content: buildSystemPrompt(persona, memory) },
+          { role: "system", content: buildSystemPrompt(persona, memory, settings) },
           {
             role: "user",
             content: automationMode === "hybrid"
@@ -1899,10 +1901,34 @@ const PERSONA_PROFILES: Record<TestPersona, PersonaProfile> = {
   },
 };
 
-function buildSystemPrompt(persona: TestPersona, memory?: string): string {
+function buildSecurityPayloadSection(persona: TestPersona, settings: GetwiredSettings): string {
+  if (persona !== "hacky" || settings.security.injectPayloads === false) {
+    return "";
+  }
+
+  let payloads = getPayloads(settings.security.enabledCategories);
+  const customPayloadsPath = settings.security.customPayloadsPath?.trim();
+
+  if (customPayloadsPath && existsSync(customPayloadsPath)) {
+    const parsed = JSON.parse(readFileSync(customPayloadsPath, "utf-8")) as SecurityPayload[];
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      payloads = [...payloads, ...parsed];
+    }
+  }
+
+  return `── Security Payload Reference ──
+Use these known injection vectors when testing input fields, URL parameters, and headers. Pick payloads that match the input type you're testing. Do not limit yourself to these — also try creative variations.
+
+${formatPayloadsForPrompt(payloads)}`;
+}
+
+function buildSystemPrompt(persona: TestPersona, memory: string | undefined, settings: GetwiredSettings): string {
+  const securityPayloadSection = buildSecurityPayloadSection(persona, settings);
   return `${BASE_SYSTEM_PROMPT}
 
-${PERSONA_PROMPT_APPENDIX[persona]}${memory ? `
+${PERSONA_PROMPT_APPENDIX[persona]}${securityPayloadSection ? `
+
+${securityPayloadSection}` : ""}${memory ? `
 
 ── App Memory (from previous test sessions) ──
 This is what you already know about this app from prior testing. Use this to:
@@ -2104,9 +2130,15 @@ Based on the untrusted site data above, answer these questions in plain text (NO
 Return your analysis as plain text with clear sections. Do NOT return JSON. The next step will use your analysis to generate specific test scenarios.`;
 }
 
-function buildAllScenariosPrompt(context: TestContext, testPlan: string, pageMap: string): string {
+function buildAllScenariosPrompt(
+  context: TestContext,
+  testPlan: string,
+  pageMap: string,
+  settings: GetwiredSettings,
+): string {
   const persona = context.persona ?? "standard";
   const pageDataSection = buildUntrustedPageDataSection(pageMap);
+  const securityPayloadSection = buildSecurityPayloadSection(persona, settings);
 
   const baseInfo = `URL: ${context.url}
 Device: ${context.deviceProfile}
@@ -2141,7 +2173,9 @@ ${baseInfo}
 
 ${personaFocus}
 
-CRITICAL — read your analysis above and follow it:
+${securityPayloadSection ? `${securityPayloadSection}
+
+` : ""}CRITICAL — read your analysis above and follow it:
 - Your analysis already identified what's on this site and what to skip. FOLLOW THAT. If you said "no forms exist," do not generate form-testing scenarios. If you said "simple landing page," generate 3-5 scenarios, not 15.
 - Every scenario must target a SPECIFIC element, page, or flow from the site map. Reference actual links, buttons, forms, and selectors you can see above.
 - Each scenario must test something genuinely different. If two scenarios would click the same button and fill the same form, merge them or drop one.
