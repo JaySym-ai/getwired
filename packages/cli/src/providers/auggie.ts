@@ -100,7 +100,8 @@ export class AuggieProvider extends TestingProvider {
 function buildRegressionPrompt(url: string, device: "desktop" | "mobile"): string {
   return `You are GetWired checking for UI regression.
 URL: ${url} | Device: ${device}
-Compare baseline vs current screenshot. Return JSON array of regression findings with: id, severity, category "ui-regression", title, description, device. Return [] if none.`;
+Compare baseline vs current screenshot. Return JSON array of regression findings with: id, severity, category "ui-regression", title, description, device. Return [] if none.
+CRITICAL: NEVER include API keys, auth tokens, passwords, secrets, or any sensitive data visible in screenshots in your output. If sensitive data is visible, report it as a security finding without repeating the actual value. Redact as [REDACTED].`;
 }
 
 export { buildRegressionPrompt };
