@@ -43,6 +43,15 @@ program
     render(<ReportView reportId={options.id} />);
   });
 
+// MCP server mode (no TUI, communicates over stdio JSON-RPC)
+program
+  .command("mcp")
+  .description("Start MCP server for AI coding agent integration (Claude Code, Cursor, Windsurf, etc.)")
+  .action(async () => {
+    const { startMcpServer } = await import("./mcp/server.js");
+    await startMcpServer();
+  });
+
 // Default: interactive dashboard
 program
   .command("dashboard", { isDefault: true })

@@ -49,6 +49,7 @@ Run GetWired from your project folder directly. For web apps, it tests local app
 | `getwired init` | Initialize GetWired and configure your AI provider |
 | `getwired test` | Run AI-driven chaotic testing against your local dev server |
 | `getwired report` | View test reports |
+| `getwired mcp` | Start MCP server for AI coding agent integration |
 
 ### Test Flags
 
@@ -82,6 +83,103 @@ npx getwired init --provider auggie
 | **Web Apps** | Any web app on localhost — Next.js, React, Vue, Svelte, plain HTML, and more |
 | **Native Android** | Android apps running in an emulator via ADB |
 | **Native iOS** | iOS apps running in the Simulator via AXe |
+
+## MCP Integration
+
+Use GetWired as an MCP server so your AI coding agent can run tests directly. Works with Claude Code, Cursor, Windsurf, Codex, and any MCP-compatible tool.
+
+```bash
+getwired mcp
+```
+
+### Claude Code
+
+Add to `~/.claude/settings.json` (global) or `.claude/settings.json` (project):
+
+```json
+{
+  "mcpServers": {
+    "getwired": {
+      "command": "getwired",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Restart Claude Code for changes to take effect.
+
+### OpenAI Codex
+
+Add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.getwired]
+command = "getwired"
+args = ["mcp"]
+```
+
+Or via the CLI:
+
+```bash
+codex mcp add getwired -- getwired mcp
+```
+
+### Augment Code (Auggie)
+
+Open Augment settings, go to MCP servers, and add this JSON:
+
+```json
+{
+  "mcpServers": {
+    "getwired": {
+      "command": "getwired",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Cursor
+
+Add to `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project):
+
+```json
+{
+  "mcpServers": {
+    "getwired": {
+      "command": "getwired",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Windsurf
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "getwired": {
+      "command": "getwired",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Available MCP Tools
+
+| Tool | Description |
+| --- | --- |
+| `getwired_check_status` | Check if GetWired is initialized in a project |
+| `getwired_init` | Initialize GetWired configuration |
+| `getwired_run_test` | Run a full AI-powered test session |
+| `getwired_list_reports` | List past test reports |
+| `getwired_get_report` | Get a full report by ID |
+| `getwired_get_findings` | Get findings filtered by severity or category |
 
 ## How It Works
 

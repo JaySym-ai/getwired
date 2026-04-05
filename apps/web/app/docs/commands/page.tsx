@@ -39,6 +39,12 @@ const commands = [
     example: "$ getwired report --id latest",
   },
   {
+    name: "getwired mcp",
+    desc: "Start an MCP server for AI coding agent integration. Lets Claude Code, Codex, Cursor, Windsurf, and other MCP-compatible agents run tests, read reports, and manage configuration directly.",
+    flags: [],
+    example: "$ getwired mcp",
+  },
+  {
     name: "getwired dashboard",
     desc: "Open the interactive TUI dashboard. This is the default command when running getwired with no arguments. Gives you access to test runs, reports, notes, and settings.",
     flags: [],

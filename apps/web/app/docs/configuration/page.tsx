@@ -72,10 +72,10 @@ export default function Configuration() {
 
       <div className="mt-12 flex justify-between">
         <Link
-          href="/docs/reports"
+          href="/docs/mcp"
           className="rounded border border-emerald-500/20 px-4 py-2 font-mono text-xs text-emerald-500/60 transition hover:border-emerald-400/50 hover:bg-emerald-400 hover:text-black"
         >
-          &larr; Reports
+          &larr; MCP
         </Link>
         <Link
           href="/docs/authentication"
