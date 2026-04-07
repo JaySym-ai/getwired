@@ -47,17 +47,25 @@ export async function* createStdoutChunkQueue(stdout: Readable): AsyncGenerator<
 
   stdout.on("data", onData);
   stdout.on("end", onEnd);
+  stdout.on("close", onEnd);
   stdout.on("error", onEnd);
 
-  while (true) {
-    if (queue.length > 0) {
-      yield queue.shift()!;
-    } else if (ended) {
-      break;
-    } else {
-      await new Promise<void>((r) => {
-        waiting = r;
-      });
+  try {
+    while (true) {
+      if (queue.length > 0) {
+        yield queue.shift()!;
+      } else if (ended) {
+        break;
+      } else {
+        await new Promise<void>((r) => {
+          waiting = r;
+        });
+      }
     }
+  } finally {
+    stdout.removeListener("data", onData);
+    stdout.removeListener("end", onEnd);
+    stdout.removeListener("close", onEnd);
+    stdout.removeListener("error", onEnd);
   }
 }

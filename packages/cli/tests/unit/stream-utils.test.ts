@@ -26,6 +26,36 @@ describe("stream-utils", () => {
     assert.deepEqual(await chunksPromise, ["first chunk\n", "second chunk\n", "third chunk\n"]);
   });
 
+  it("createStdoutChunkQueue treats close as an end signal", async () => {
+    const stdout = new PassThrough();
+    const chunksPromise = collectChunks(stdout);
+
+    stdout.write("before close\n");
+    stdout.emit("close");
+
+    assert.deepEqual(await chunksPromise, ["before close\n"]);
+  });
+
+  it("createStdoutChunkQueue removes listeners when iteration stops early", async () => {
+    const stdout = new PassThrough();
+    const iterator = createStdoutChunkQueue(stdout);
+
+    stdout.write("first chunk\n");
+    assert.deepEqual(await iterator.next(), { done: false, value: "first chunk\n" });
+
+    assert.equal(stdout.listenerCount("data"), 1);
+    assert.equal(stdout.listenerCount("end"), 1);
+    assert.equal(stdout.listenerCount("close"), 1);
+    assert.equal(stdout.listenerCount("error"), 1);
+
+    await iterator.return(undefined);
+
+    assert.equal(stdout.listenerCount("data"), 0);
+    assert.equal(stdout.listenerCount("end"), 0);
+    assert.equal(stdout.listenerCount("close"), 0);
+    assert.equal(stdout.listenerCount("error"), 0);
+  });
+
   it("drainStderr keeps only the capped stderr tail", () => {
     const stderr = new PassThrough();
     const { getBuffer } = drainStderr(stderr);
