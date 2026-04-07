@@ -65,6 +65,7 @@ const reportHelp = runCli(["report", "--help"]);
 expectIncludes(reportHelp, [
   "View test reports",
   "--id <id>",
+  "--latest",
 ], "report help");
 
 const version = runCli(["--version"]).trim();
