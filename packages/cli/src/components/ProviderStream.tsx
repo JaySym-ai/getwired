@@ -144,7 +144,7 @@ export function ProviderStream({
               wrap="truncate"
             >
               {line}
-              {isLastLine && isStreaming ? (
+              {isLastLine && isStreaming && scrollOffset === 0 ? (
                 <Text color={cursorVisible ? "greenBright" : "gray"}>█</Text>
               ) : null}
             </Text>
