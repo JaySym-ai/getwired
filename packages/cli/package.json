@@ -24,7 +24,9 @@
     "dev": "tsx watch src/cli.tsx",
     "build": "tsup",
     "prepare": "npm run build",
-    "lint": "tsc --noEmit",
+    "lint": "tsc --noEmit && npm run lint:patterns",
+    "lint:patterns": "node scripts/check-patterns.mjs",
+    "test": "tsx --test tests/integration/*.test.ts tests/unit/*.test.ts",
     "regression:smoke": "npm run build && node ./scripts/regression-smoke.mjs"
   },
   "keywords": [

@@ -1,8 +1,4 @@
 import { spawn } from "node:child_process";
-import type { Readable } from "node:stream";
-
-/** Cap buffered stderr so MCP/tool spam cannot grow without bound. */
-const STDERR_CAP = 16_384;
 import {
   TestingProvider,
   ProviderConfig,
@@ -11,6 +7,7 @@ import {
   TestContext,
   TestFinding,
 } from "./types.js";
+import { createStdoutChunkQueue, drainStderr } from "./stream-utils.js";
 
 export class AuggieProvider extends TestingProvider {
   readonly config: ProviderConfig = {
@@ -35,21 +32,7 @@ export class AuggieProvider extends TestingProvider {
       proc.on("error", () => resolve(null));
     });
 
-    // Drain stderr for diagnostics only — do not merge into the TUI stream
-    // (MCP init and tool noise on stderr looked like test output; see issue #8).
-    let stderrBuf = "";
-    proc.stderr!.on("data", (chunk: Buffer) => {
-      // Keep only the tail of each incoming chunk to avoid allocating
-      // an oversized temporary string on concatenation.
-      let text = chunk.toString();
-      if (text.length > STDERR_CAP) {
-        text = text.slice(-STDERR_CAP);
-      }
-      const headRoom = STDERR_CAP - text.length;
-      const prefix = headRoom > 0 ? stderrBuf.slice(-headRoom) : "";
-      stderrBuf = prefix + text;
-    });
-    proc.stderr!.on("error", () => {});
+    const stderr = drainStderr(proc.stderr!);
 
     const chunks = createStdoutChunkQueue(proc.stdout!);
 
@@ -63,7 +46,8 @@ export class AuggieProvider extends TestingProvider {
     const exitCode = await exitPromise;
 
     if (exitCode !== null && exitCode !== 0) {
-      const detail = stderrBuf.trim() ? `\n${stderrBuf.trim()}` : "";
+      const stderrBuf = stderr.getBuffer().trim();
+      const detail = stderrBuf ? `\n${stderrBuf}` : "";
       yield { type: "text", content: `\n[auggie exited with code ${exitCode}]${detail}\n` };
     }
 
@@ -123,45 +107,3 @@ CRITICAL: NEVER include API keys, auth tokens, passwords, secrets, or any sensit
 }
 
 export { buildRegressionPrompt };
-
-/**
- * Event-driven queue for stdout only — yields each chunk as it arrives.
- * Stderr is handled separately so CLI/MCP diagnostics do not appear as model output.
- */
-async function* createStdoutChunkQueue(stdout: Readable): AsyncGenerator<string> {
-  const queue: string[] = [];
-  let ended = false;
-  let waiting: (() => void) | null = null;
-
-  function onData(chunk: Buffer) {
-    queue.push(chunk.toString());
-    if (waiting) {
-      const wake = waiting;
-      waiting = null;
-      wake();
-    }
-  }
-
-  function onEnd() {
-    ended = true;
-    if (waiting) {
-      const wake = waiting;
-      waiting = null;
-      wake();
-    }
-  }
-
-  stdout.on("data", onData);
-  stdout.on("end", onEnd);
-  stdout.on("error", onEnd);
-
-  while (true) {
-    if (queue.length > 0) {
-      yield queue.shift()!;
-    } else if (ended) {
-      break;
-    } else {
-      await new Promise<void>((r) => { waiting = r; });
-    }
-  }
-}
