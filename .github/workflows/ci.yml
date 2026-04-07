@@ -19,7 +19,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: 22
-          package-manager-cache: false
+          cache: npm
       - name: Install CLI dependencies
         run: npm ci --prefix packages/cli
       - name: Run lint
@@ -34,7 +34,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: 22
-          package-manager-cache: false
+          cache: npm
       - name: Install CLI dependencies
         run: npm ci --prefix packages/cli
       - name: Run tests
