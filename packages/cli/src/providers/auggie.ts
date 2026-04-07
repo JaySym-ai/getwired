@@ -1,5 +1,8 @@
 import { spawn } from "node:child_process";
 import type { Readable } from "node:stream";
+
+/** Cap buffered stderr so MCP/tool spam cannot grow without bound. */
+const STDERR_CAP = 16_384;
 import {
   TestingProvider,
   ProviderConfig,
@@ -32,9 +35,15 @@ export class AuggieProvider extends TestingProvider {
       proc.on("error", () => resolve(null));
     });
 
-    // Use an event-driven queue instead of `for await` so chunks are
-    // yielded as soon as they arrive rather than being batched.
-    const chunks = createChunkQueue(proc.stdout!, proc.stderr!);
+    // Drain stderr for diagnostics only — do not merge into the TUI stream
+    // (MCP init and tool noise on stderr looked like test output; see issue #8).
+    let stderrBuf = "";
+    proc.stderr!.on("data", (chunk: Buffer) => {
+      const next = stderrBuf + chunk.toString();
+      stderrBuf = next.length > STDERR_CAP ? next.slice(-STDERR_CAP) : next;
+    });
+
+    const chunks = createStdoutChunkQueue(proc.stdout!);
 
     for await (const text of chunks) {
       if (text.trim()) {
@@ -46,7 +55,8 @@ export class AuggieProvider extends TestingProvider {
     const exitCode = await exitPromise;
 
     if (exitCode !== null && exitCode !== 0) {
-      yield { type: "text", content: `\n[auggie exited with code ${exitCode}]\n` };
+      const detail = stderrBuf.trim() ? `\n${stderrBuf.trim()}` : "";
+      yield { type: "text", content: `\n[auggie exited with code ${exitCode}]${detail}\n` };
     }
 
     yield { type: "done" };
@@ -107,18 +117,16 @@ CRITICAL: NEVER include API keys, auth tokens, passwords, secrets, or any sensit
 export { buildRegressionPrompt };
 
 /**
- * Event-driven chunk queue that merges stdout + stderr and yields each
- * data event immediately — no batching, no waiting for buffer fills.
+ * Event-driven queue for stdout only — yields each chunk as it arrives.
+ * Stderr is handled separately so CLI/MCP diagnostics do not appear as model output.
  */
-async function* createChunkQueue(stdout: Readable, stderr: Readable): AsyncGenerator<string> {
+async function* createStdoutChunkQueue(stdout: Readable): AsyncGenerator<string> {
   const queue: string[] = [];
-  let finished = 0;
+  let ended = false;
   let waiting: (() => void) | null = null;
 
   function onData(chunk: Buffer) {
-    // Split on newlines so partial lines are flushed immediately
-    const text = chunk.toString();
-    queue.push(text);
+    queue.push(chunk.toString());
     if (waiting) {
       const wake = waiting;
       waiting = null;
@@ -127,7 +135,7 @@ async function* createChunkQueue(stdout: Readable, stderr: Readable): AsyncGener
   }
 
   function onEnd() {
-    finished++;
+    ended = true;
     if (waiting) {
       const wake = waiting;
       waiting = null;
@@ -136,16 +144,13 @@ async function* createChunkQueue(stdout: Readable, stderr: Readable): AsyncGener
   }
 
   stdout.on("data", onData);
-  stderr.on("data", onData);
   stdout.on("end", onEnd);
-  stderr.on("end", onEnd);
   stdout.on("error", onEnd);
-  stderr.on("error", onEnd);
 
   while (true) {
     if (queue.length > 0) {
       yield queue.shift()!;
-    } else if (finished >= 2) {
+    } else if (ended) {
       break;
     } else {
       await new Promise<void>((r) => { waiting = r; });
