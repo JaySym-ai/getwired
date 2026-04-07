@@ -39,9 +39,17 @@ export class AuggieProvider extends TestingProvider {
     // (MCP init and tool noise on stderr looked like test output; see issue #8).
     let stderrBuf = "";
     proc.stderr!.on("data", (chunk: Buffer) => {
-      const next = stderrBuf + chunk.toString();
-      stderrBuf = next.length > STDERR_CAP ? next.slice(-STDERR_CAP) : next;
+      // Keep only the tail of each incoming chunk to avoid allocating
+      // an oversized temporary string on concatenation.
+      let text = chunk.toString();
+      if (text.length > STDERR_CAP) {
+        text = text.slice(-STDERR_CAP);
+      }
+      const headRoom = STDERR_CAP - text.length;
+      const prefix = headRoom > 0 ? stderrBuf.slice(-headRoom) : "";
+      stderrBuf = prefix + text;
     });
+    proc.stderr!.on("error", () => {});
 
     const chunks = createStdoutChunkQueue(proc.stdout!);
 
