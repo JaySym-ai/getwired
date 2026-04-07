@@ -28,11 +28,13 @@ export default function Reports() {
         <div className="mt-4 rounded-lg border border-emerald-500/15 bg-black/40 p-5 font-mono text-xs text-emerald-500/60">
           <div className="text-emerald-400 mb-2">.getwired/reports/</div>
           <div className="ml-4">
-            <div>2026-03-28-143022/</div>
+            <div>gw-m4x2k1a3-7f2b/</div>
             <div className="ml-4 text-emerald-500/40">
               <div>report.html</div>
-              <div>report.json</div>
+              <div>&lt;id&gt;.json</div>
+              <div>debug.log</div>
               <div>screenshots/</div>
+              <div>diffs/</div>
             </div>
           </div>
         </div>
