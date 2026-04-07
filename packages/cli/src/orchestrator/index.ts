@@ -17,6 +17,7 @@ import {
   getMemoryPath,
   getHybridScenarioCachePath,
 } from "../config/settings.js";
+import { renderHtmlReport } from "./html-report.js";
 import { captureMultiplePages } from "../screenshot/capture.js";
 import { compareScreenshots, imageToBase64 } from "../screenshot/compare.js";
 import {
@@ -681,7 +682,7 @@ export async function runTestSession(
       notes: [notes],
     };
 
-    await saveReport(context.reportDir, report);
+    await saveReport(context.reportDir, report, settings.reporting.outputFormat);
     out(`\n> Report saved: ${report.id}.json\n`);
     out(`> Browser evidence: ${execution.navigations} navigation${execution.navigations === 1 ? "" : "s"}, ${execution.screenshots} screenshot${execution.screenshots === 1 ? "" : "s"}\n`);
 
@@ -1029,7 +1030,7 @@ export async function runDesktopTestSession(
       notes: [],
     };
 
-    await writeFile(join(context.reportDir, "report.json"), JSON.stringify(report, null, 2));
+    await saveReport(context.reportDir, report, settings.reporting.outputFormat, "report.json");
     out(`> Report saved: ${toProjectRelativePath(projectPath, join(context.reportDir, "report.json"))}\n`);
 
     await saveDebugLog();
@@ -1747,7 +1748,7 @@ export async function runNativeTestSession(
       notes: [notes],
     };
 
-    await saveReport(context.reportDir, report);
+    await saveReport(context.reportDir, report, settings.reporting.outputFormat);
     out(`\n> Report saved: ${report.id}.json\n`);
 
     // Update memory
@@ -4585,10 +4586,20 @@ function generateId(): string {
   return `gw-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
-async function saveReport(reportDir: string, report: TestReport): Promise<string> {
+async function saveReport(
+  reportDir: string,
+  report: TestReport,
+  outputFormat: "json" | "html" | "markdown",
+  jsonFileName = `${report.id}.json`,
+): Promise<string> {
   await mkdir(reportDir, { recursive: true });
-  const filePath = join(reportDir, `${report.id}.json`);
+  const filePath = join(reportDir, jsonFileName);
   await writeFile(filePath, JSON.stringify(report, null, 2));
+
+  if (outputFormat === "json" || outputFormat === "html") {
+    await writeFile(join(reportDir, "report.html"), renderHtmlReport(report));
+  }
+
   return filePath;
 }
 
