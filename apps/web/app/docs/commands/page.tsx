@@ -35,8 +35,9 @@ const commands = [
     desc: "View past test reports. Shows findings, screenshots, and regression data.",
     flags: [
       { flag: "-i, --id <id>", desc: "View a specific report by ID" },
+      { flag: "--latest", desc: "View the most recent report" },
     ],
-    example: "$ getwired report --id latest",
+    example: "$ getwired report --latest",
   },
   {
     name: "getwired mcp",
