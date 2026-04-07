@@ -1,5 +1,5 @@
 import { readFile, writeFile, readdir, mkdir } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join, relative } from "node:path";
 import { execSync, spawn, type ChildProcess } from "node:child_process";
@@ -16,10 +16,11 @@ import {
   getNotesDir,
   getMemoryPath,
   getHybridScenarioCachePath,
+  getWebScenarioCachePath,
+  getDesktopScenarioCachePath,
 } from "../config/settings.js";
 import { renderHtmlReport } from "./html-report.js";
-import { captureMultiplePages } from "../screenshot/capture.js";
-import { compareScreenshots, imageToBase64 } from "../screenshot/compare.js";
+
 import {
   describeNativeLaunchTarget,
   persistNativeLaunchTarget,
@@ -142,6 +143,7 @@ interface ScenarioExecutionResult extends BrowserExecutionStats {
   executedScenarios: number;
   failedScenarios: number;
   error?: string;
+  generatedScenarios?: InteractionScenario[];
 }
 
 interface HybridScenarioSanitizationResult {
@@ -174,6 +176,32 @@ interface HybridScenarioCacheEntry {
 interface HybridScenarioCacheFile {
   version: 1;
   entries: HybridScenarioCacheEntry[];
+}
+
+interface WebScenarioCacheEntry {
+  key: string;
+  createdAt: string;
+  persona: TestPersona;
+  url: string;
+  scenarios: InteractionScenario[];
+}
+
+interface WebScenarioCacheFile {
+  version: 1;
+  entries: WebScenarioCacheEntry[];
+}
+
+interface DesktopScenarioCacheEntry {
+  key: string;
+  createdAt: string;
+  persona: TestPersona;
+  platform: string;
+  scenarios: InteractionScenario[];
+}
+
+interface DesktopScenarioCacheFile {
+  version: 1;
+  entries: DesktopScenarioCacheEntry[];
 }
 
 interface AndroidUiNode {
@@ -322,7 +350,7 @@ export async function runTestSession(
   callbacks.onStepUpdate(steps);
 
   // Debug log — captures all provider output for post-mortem diagnosis
-  let debugLog = `GetWired Debug Log\nRun: ${runId}\nTimestamp: ${new Date().toISOString()}\nProvider: ${settings.provider}\nPersona: ${persona}\nURL: ${resolvedUrl ?? "(none)"}\n${"─".repeat(60)}\n\n`;
+  let debugLog = `GetWired Debug Log\nRun: ${runId}\nTimestamp: ${new Date().toISOString()}\nProvider: ${settings.provider}\nPersona: ${persona}\nDevice: ${deviceProfile}\nURL: ${resolvedUrl ?? "(none)"}\n${options.scope ? `Scope: ${options.scope}\n` : ""}${options.commitId ? `Commit: ${options.commitId}\n` : ""}${options.prId ? `PR: ${options.prId}\n` : ""}${"─".repeat(60)}\n\n`;
 
   const out = (text: string) => {
     debugLog += text;
@@ -345,8 +373,11 @@ export async function runTestSession(
     }
 
     debugLog += `\n${"─".repeat(60)}\nCompleted: ${new Date().toISOString()}\nDuration: ${Date.now() - startTime}ms\n`;
-    await writeFile(join(context.reportDir, "debug.log"), debugLog).catch(() => {});
+    await writeFile(join(context.reportDir, "debug.log"), sanitizeDebugLog(debugLog)).catch(() => {});
   };
+
+  // Emit report folder early so the UI can display it during the test
+  out(`> Report folder: ${runId}\n`);
 
   // Track auto-started dev server so we can clean it up
   let autoStartedServer: DevServerInfo | undefined;
@@ -393,18 +424,22 @@ export async function runTestSession(
       }
       context.url = autoStartedServer.url;
       out(`> Auto-started dev server at ${autoStartedServer.url}\n`);
+    } else {
+      // URL was provided — check if the server is actually responding
+      autoStartedServer = await ensureServerRunning(context.url, projectPath, out, callbacks, provider, context);
     }
 
-    // ── Step 1: Scan project ───────────────────────────
+    // ── Steps 1 & 2: Scan project + Load notes (parallel) ──
     callbacks.onPhaseChange("scanning", "Scanning project structure...");
     await updateStep(steps, 0, "running", callbacks);
-    const projectInfo = await scanProject(projectPath, context);
-    await updateStep(steps, 0, "passed", callbacks, Date.now() - startTime);
-
-    // ── Step 2: Load notes & memory ────────────────────
-    callbacks.onPhaseChange("scanning", "Loading project context...");
     await updateStep(steps, 1, "running", callbacks);
-    const notes = await loadProjectNotes(projectPath);
+
+    const [projectInfo, notes] = await Promise.all([
+      scanProject(projectPath, context),
+      loadProjectNotes(projectPath),
+    ]);
+
+    await updateStep(steps, 0, "passed", callbacks, Date.now() - startTime);
     if (memory) {
       out(`> Loaded memory from previous test sessions\n`);
       if (memoryUrl && context.url === memoryUrl) {
@@ -413,7 +448,7 @@ export async function runTestSession(
     }
     await updateStep(steps, 1, "passed", callbacks);
 
-    // ── Step 3: Reconnaissance — AI explores like a human would ──
+    // ── Step 3: Scenario generation (merged recon + planning) ──
     callbacks.onPhaseChange("planning", personaProfile.phaseMessages.planning);
     await updateStep(steps, 2, "running", callbacks);
     out(`> ${settings.provider}: ${personaProfile.outputMessages.planning}\n\n`);
@@ -497,118 +532,81 @@ export async function runTestSession(
     out(`> Crawling visible links and forms...\n`);
     pageMap = await crawlSiteMap(context.url, out, settings.testing.showBrowser, ab);
 
-    const testPlan = await streamAnalyze(context, [
-      { role: "system", content: buildSystemPrompt(persona, memory, settings) },
-      { role: "user", content: buildReconPrompt(context, projectInfo, notes, pageMap) },
-    ]);
-    callbacks.onLog(`Test plan generated with ${countPlanSteps(testPlan)} items`);
+    // Build cache key for web scenario reuse
+    const webCacheKey = buildWebScenarioCacheKey(context.url, pageMap, persona);
+    const webCache = await loadWebScenarioCache(projectPath);
+    const cachedEntry = webCache.entries.find((e) => e.key === webCacheKey);
+
+    if (cachedEntry) {
+      out(`> Reusing ${cachedEntry.scenarios.length} cached scenarios (site structure unchanged)\n`);
+    }
+
     await updateStep(steps, 2, "passed", callbacks);
 
-    // ── Step 4: First impression screenshots ───────────
-    let captures: Array<{ path: string; url: string; device: "desktop" | "mobile" }> = [];
-
-    callbacks.onPhaseChange("capturing-current", "Taking first-impression screenshots...");
-    await updateStep(
-      steps,
-      3,
-      "running",
-      callbacks,
-      undefined,
-      `Opening ${browserSession.label} for first-impression captures`,
-    );
-    out(`> Opening ${browserSession.label} — first thing a human sees...\n`);
-
-    const pages = settings.project.pages.length > 0
-      ? settings.project.pages
-      : [context.url];
-
-    try {
-      captures = await captureMultiplePages(pages, {
-        outputDir: join(context.reportDir, "screenshots"),
-        deviceProfile,
-        viewports: settings.testing.viewports,
-        fullPage: settings.testing.screenshotFullPage,
-        delay: settings.testing.screenshotDelay,
-        showBrowser: settings.testing.showBrowser,
-      });
-      execution.browserSessions += pages.length;
-      execution.navigations += captures.length;
-      execution.screenshots += captures.length;
-      for (const cap of captures) {
-        out(`  📸 ${cap.device}: ${toProjectRelativePath(projectPath, cap.path)}\n`);
-      }
-      await updateStep(
-        steps,
-        3,
-        captures.length > 0 ? "passed" : "failed",
-        callbacks,
-        undefined,
-        captures.length > 0
-          ? `Saved ${captures.length} screenshot${captures.length === 1 ? "" : "s"} to ${toProjectRelativePath(projectPath, join(context.reportDir, "screenshots"))}`
-          : "Browser ran but did not save any screenshots",
-      );
-    } catch (err) {
-      out(`\n! Screenshot failed: ${String(err).slice(0, 100)}\n`);
-      await updateStep(steps, 3, "failed", callbacks, undefined, "Screenshot capture failed");
-    }
-
-    // ── Step 5: Compare with baselines ──────────────
-    callbacks.onPhaseChange("comparing", "Comparing with baselines...");
-    await updateStep(steps, 4, "running", callbacks);
-    if (captures.length > 0) {
-      out(`\n> Pixel-diffing against baselines...\n`);
-      const regressionFindings = await compareWithBaselines(captures, context, settings, provider, callbacks);
-      recordFindings(regressionFindings);
-    }
-    await updateStep(
-      steps,
-      4,
-      captures.length > 0 ? "passed" : "failed",
-      callbacks,
-      undefined,
-      captures.length > 0 ? undefined : "Cannot compare baselines without current screenshots",
-    );
-
-    // ── Step 6: Generate & execute ALL test scenarios in one pass ──
+    // ── Step 4: Execute test scenarios ──
     callbacks.onPhaseChange("testing", personaProfile.phaseMessages.scenarios);
-    await updateStep(steps, 5, "running", callbacks, undefined, `Using ${browserSession.label}`);
+    await updateStep(steps, 3, "running", callbacks, undefined, `Using ${browserSession.label}`);
     out(`\n> ${settings.provider}: ${personaProfile.outputMessages.scenarios}\n\n`);
 
-    const allScenariosResult = await streamAnalyze(context, [
-      { role: "system", content: buildSystemPrompt(persona, memory, settings) },
-      { role: "user", content: buildAllScenariosPrompt(context, testPlan, pageMap, settings) },
-    ]);
-
-    const allScenarios = parseScenarios(allScenariosResult);
-    execution.scenariosPlanned += allScenarios.length;
     let scenarioExecution: ScenarioExecutionResult | null = null;
-    if (allScenarios.length > 0) {
-      out(`\n> Executing ${allScenarios.length} scenarios in browser...\n`);
-      scenarioExecution = await executeScenarios(
-        allScenarios, context, settings, out, ab,
+
+    if (cachedEntry) {
+      const allScenarios = cachedEntry.scenarios;
+      execution.scenariosPlanned += allScenarios.length;
+      if (allScenarios.length > 0) {
+        out(`\n> Executing ${allScenarios.length} cached scenarios in browser...\n`);
+        scenarioExecution = await executeScenarios(allScenarios, context, settings, out, ab);
+        execution.browserSessions += scenarioExecution.browserSessions;
+        execution.navigations += scenarioExecution.navigations;
+        execution.screenshots += scenarioExecution.screenshots;
+        execution.scenariosExecuted += scenarioExecution.executedScenarios;
+        recordFindings(scenarioExecution.findings);
+      }
+    } else {
+      scenarioExecution = await streamAndExecuteScenarios(
+        context, persona, memory, settings, projectInfo, notes, pageMap,
+        provider, out, ab, execution,
+        (newFindings) => { recordFindings(newFindings); },
+        callbacks,
       );
       execution.browserSessions += scenarioExecution.browserSessions;
       execution.navigations += scenarioExecution.navigations;
       execution.screenshots += scenarioExecution.screenshots;
       execution.scenariosExecuted += scenarioExecution.executedScenarios;
       recordFindings(scenarioExecution.findings);
+
+      if (scenarioExecution.generatedScenarios && scenarioExecution.generatedScenarios.length > 0) {
+        const newEntry: WebScenarioCacheEntry = {
+          key: webCacheKey,
+          createdAt: new Date().toISOString(),
+          persona,
+          url: context.url ?? "",
+          scenarios: scenarioExecution.generatedScenarios ?? [],
+        };
+        webCache.entries = webCache.entries
+          .filter((e) => e.key !== webCacheKey)
+          .slice(-9);
+        webCache.entries.push(newEntry);
+        await saveWebScenarioCache(projectPath, webCache).catch(() => {});
+      }
     }
+
     await updateStep(
       steps,
-      5,
+      3,
       scenarioExecution && scenarioExecution.executedScenarios > 0 && !scenarioExecution.error ? "passed" : "failed",
       callbacks,
       undefined,
       scenarioExecution && scenarioExecution.executedScenarios > 0 && !scenarioExecution.error
         ? `Executed ${scenarioExecution.executedScenarios} scenario${scenarioExecution.executedScenarios === 1 ? "" : "s"} with ${scenarioExecution.navigations} navigations and ${scenarioExecution.screenshots} screenshots`
-        : allScenarios.length === 0
+        : !scenarioExecution || execution.scenariosPlanned === 0
           ? "Provider returned no executable browser scenarios"
           : scenarioExecution?.error ?? "Browser did not complete any scenario",
     );
 
-    // ── Step 7: Accessibility & keyboard-only ────────────
+    // ── Step 5: Accessibility & keyboard-only ────────────
     callbacks.onPhaseChange("testing", personaProfile.phaseMessages.accessibility);
-    await updateStep(steps, 6, "running", callbacks, undefined, `Using ${browserSession.label}`);
+    await updateStep(steps, 4, "running", callbacks, undefined, `Using ${browserSession.label}`);
 
     out(`\n> Running real keyboard-only navigation test...\n`);
     const a11yResult = await testAccessibility(context, settings, out, ab);
@@ -629,7 +627,7 @@ export async function runTestSession(
 
     await updateStep(
       steps,
-      6,
+      4,
       a11yResult.completed && !a11yResult.error ? "passed" : "failed",
       callbacks,
       undefined,
@@ -638,9 +636,9 @@ export async function runTestSession(
         : a11yResult.error ?? "Accessibility browser check did not complete",
     );
 
-    // ── Step 8: Generate report ────────────────────────
+    // ── Step 6: Generate report ────────────────────────
     callbacks.onPhaseChange("reporting", "Generating report...");
-    await updateStep(steps, 7, "running", callbacks);
+    await updateStep(steps, 5, "running", callbacks);
 
     execution.evidenceMet = execution.navigations > 0 && execution.screenshots > 0;
 
@@ -707,7 +705,7 @@ export async function runTestSession(
       out(`> Memory update skipped (non-critical)\n`);
     }
 
-    await updateStep(steps, 7, "passed", callbacks);
+    await updateStep(steps, 5, "passed", callbacks);
 
     await saveDebugLog();
     out(`> Debug log saved: ${runId}/debug.log\n`);
@@ -782,15 +780,13 @@ export async function runDesktopTestSession(
     "Load project context",
     "Resolve desktop launch target",
     "Launch desktop app",
-    "Capture screenshots",
-    "Reconnaissance & test planning",
-    "Execute test scenarios",
+    "Generate & execute test scenarios",
     "Generate report",
   ];
   const steps: TestStep[] = desktopStepNames.map((name) => ({ name, status: "pending" }));
   callbacks.onStepUpdate(steps);
 
-  let debugLog = `GetWired Debug Log (Desktop ${options.desktopPlatform})\nRun: ${runId}\nTimestamp: ${new Date().toISOString()}\nProvider: ${settings.provider}\nPersona: ${persona}\nPlatform: ${options.desktopPlatform}\nURL: ${resolvedUrl ?? "(none)"}\n${"─".repeat(60)}\n\n`;
+  let debugLog = `GetWired Debug Log (Desktop ${options.desktopPlatform})\nRun: ${runId}\nTimestamp: ${new Date().toISOString()}\nProvider: ${settings.provider}\nPersona: ${persona}\nPlatform: ${options.desktopPlatform}\nURL: ${resolvedUrl ?? "(none)"}\n${options.scope ? `Scope: ${options.scope}\n` : ""}${"─".repeat(60)}\n\n`;
   let desktopSession: ElectronSession | null = null;
 
   const out = (text: string) => {
@@ -806,8 +802,10 @@ export async function runDesktopTestSession(
       debugLog += `  ${icon} [${step.status}] ${step.name}\n`;
     }
     debugLog += `\nCompleted: ${new Date().toISOString()}\nDuration: ${Date.now() - startTime}ms\n`;
-    await writeFile(join(context.reportDir, "debug.log"), debugLog).catch(() => {});
+    await writeFile(join(context.reportDir, "debug.log"), sanitizeDebugLog(debugLog)).catch(() => {});
   };
+
+  out(`> Report folder: ${runId}\n`);
 
   for (const ignoredSource of ignoredSources) {
     const warning = `Ignoring ${ignoredSource} because GetWired only tests local apps on localhost or loopback addresses.`;
@@ -842,25 +840,21 @@ export async function runDesktopTestSession(
   try {
     const platformLabel = "⚡ Electron";
 
-    // ── Step 1: Scan project ─────────────────────────
+    // ── Steps 1, 2 & 3: Scan + Load notes + Resolve launch (parallel) ──
     callbacks.onPhaseChange("scanning", "Scanning project structure...");
     await updateStep(steps, 0, "running", callbacks);
-    const projectInfo = await scanProject(projectPath, context);
-    await updateStep(steps, 0, "passed", callbacks, Date.now() - startTime);
-
-    // ── Step 2: Load notes & memory ──────────────────
-    callbacks.onPhaseChange("scanning", "Loading project context...");
     await updateStep(steps, 1, "running", callbacks);
-    const notes = await loadProjectNotes(projectPath);
+    await updateStep(steps, 2, "running", callbacks, undefined, `Inspecting project for ${platformLabel} launch`);
+
+    const [projectInfo, notes, desktopLaunchTarget] = await Promise.all([
+      scanProject(projectPath, context),
+      loadProjectNotes(projectPath),
+      resolveDesktopLaunchTarget(options.desktopPlatform, projectPath, settings, memory),
+    ]);
+
+    await updateStep(steps, 0, "passed", callbacks, Date.now() - startTime);
     if (memory) out(`> Loaded memory from previous test sessions\n`);
     await updateStep(steps, 1, "passed", callbacks);
-
-    // ── Step 3: Resolve launch strategy ──────────────
-    callbacks.onPhaseChange("planning", `Inspecting project for ${platformLabel} launch...`);
-    await updateStep(steps, 2, "running", callbacks, undefined, `Inspecting project for ${platformLabel} launch`);
-    out(`> Resolving ${platformLabel} app target from memory, config, or project files...\n`);
-
-    const desktopLaunchTarget = await resolveDesktopLaunchTarget(options.desktopPlatform, projectPath, settings, memory);
     out(`  Using ${describeDesktopLaunchTarget(desktopLaunchTarget)} [${desktopLaunchTarget.source}]\n`);
 
     let resolvedSettings = persistDesktopLaunchTarget(settings, desktopLaunchTarget);
@@ -890,26 +884,9 @@ export async function runDesktopTestSession(
       throw error;
     }
 
-    // ── Step 5: Capture screenshots ──────────────────
-    callbacks.onPhaseChange("capturing-current", `Capturing screenshots on ${platformLabel}...`);
+    // ── Step 5: Generate & execute test scenarios ────
+    callbacks.onPhaseChange("testing", personaProfile.phaseMessages.scenarios);
     await updateStep(steps, 4, "running", callbacks);
-    out(`> Taking screenshots on ${platformLabel}...\n`);
-
-    const screenshotPath = join(screenshotDir, `desktop-${options.desktopPlatform}-initial.png`);
-    try {
-      const screenshotBuffer = await captureElectronScreenshot(desktopSession!);
-      await writeFile(screenshotPath, screenshotBuffer);
-      execution.screenshots++;
-      out(`  📸 Saved: ${toProjectRelativePath(projectPath, screenshotPath)}\n`);
-      await updateStep(steps, 4, "passed", callbacks, undefined, "Screenshot captured");
-    } catch (err) {
-      out(`  ! Screenshot failed: ${String(err).slice(0, 100)}\n`);
-      await updateStep(steps, 4, "failed", callbacks, undefined, "Screenshot capture failed");
-    }
-
-    // ── Step 6: Reconnaissance — get UI structure ────
-    callbacks.onPhaseChange("planning", personaProfile.phaseMessages.planning);
-    await updateStep(steps, 5, "running", callbacks);
     out(`> ${settings.provider}: ${personaProfile.outputMessages.planning}\n\n`);
 
     let uiStructure = "";
@@ -933,44 +910,57 @@ export async function runDesktopTestSession(
         device: "desktop",
         steps: [
           `Launch the app in ${platformLabel}`,
-          "Capture the initial screenshot",
           "Read the accessibility tree / UI structure",
         ],
       });
-      await updateStep(steps, 5, "failed", callbacks, undefined, "UI structure not actionable");
-      await updateStep(steps, 6, "failed", callbacks, undefined, "Skipped because the UI dump was not actionable");
+      await updateStep(steps, 4, "failed", callbacks, undefined, "UI structure not actionable");
     } else {
-      const testPlan = await streamAnalyze(context, [
-        { role: "system", content: buildSystemPrompt(persona, memory, settings) },
-        {
-          role: "user",
-          content: buildDesktopReconPrompt(context, projectInfo, notes, uiStructure, desktopLaunchTarget),
-        },
-      ]);
+      // Build cache key for desktop scenario reuse
+      const desktopCacheKey = buildDesktopScenarioCacheKey(uiStructure, persona, options.desktopPlatform);
+      const desktopCache = await loadDesktopScenarioCache(projectPath);
+      const cachedDesktopEntry = desktopCache.entries.find((e) => e.key === desktopCacheKey);
 
-      callbacks.onLog(`Test plan generated with ${countPlanSteps(testPlan)} items`);
-      await updateStep(steps, 5, "passed", callbacks);
+      let plannedScenarios: InteractionScenario[];
 
-      // ── Step 7: Execute test scenarios ────────────────
-      callbacks.onPhaseChange("testing", personaProfile.phaseMessages.scenarios);
-      await updateStep(steps, 6, "running", callbacks, undefined, `Using ${platformLabel}`);
-      out(`\n> ${settings.provider}: ${personaProfile.outputMessages.scenarios}\n\n`);
+      if (cachedDesktopEntry) {
+        out(`> Reusing ${cachedDesktopEntry.scenarios.length} cached desktop scenarios\n`);
+        plannedScenarios = cachedDesktopEntry.scenarios;
+      } else {
+        // Single merged AI call: recon + scenario generation
+        const scenarioPlanResult = await streamAnalyze(context, [
+          { role: "system", content: buildSystemPrompt(persona, memory, settings) },
+          {
+            role: "user",
+            content: buildDesktopMergedPrompt(context, projectInfo, notes, uiStructure, desktopLaunchTarget),
+          },
+        ]);
 
-      const scenarioPlanResult = await streamAnalyze(context, [
-        { role: "system", content: buildSystemPrompt(persona, memory, settings) },
-        {
-          role: "user",
-          content: buildDesktopScenariosPrompt(context, testPlan, uiStructure, desktopLaunchTarget),
-        },
-      ]);
+        const rawScenarios = parseScenarios(scenarioPlanResult);
+        plannedScenarios = validateDesktopScenarioActions(rawScenarios, options.desktopPlatform);
 
-      const rawScenarios = parseScenarios(scenarioPlanResult);
-      let plannedScenarios = validateDesktopScenarioActions(rawScenarios, options.desktopPlatform);
-      
-      if (rawScenarios.length > 0 && plannedScenarios.length < rawScenarios.length) {
-        const dropped = rawScenarios.length - plannedScenarios.length;
-        out(`  Filtered ${dropped} scenario${dropped === 1 ? "" : "s"} with invalid action types\n`);
+        if (rawScenarios.length > 0 && plannedScenarios.length < rawScenarios.length) {
+          const dropped = rawScenarios.length - plannedScenarios.length;
+          out(`  Filtered ${dropped} scenario${dropped === 1 ? "" : "s"} with invalid action types\n`);
+        }
+
+        // Cache for next time
+        if (plannedScenarios.length > 0) {
+          const newEntry: DesktopScenarioCacheEntry = {
+            key: desktopCacheKey,
+            createdAt: new Date().toISOString(),
+            persona,
+            platform: options.desktopPlatform,
+            scenarios: plannedScenarios,
+          };
+          desktopCache.entries = desktopCache.entries
+            .filter((e) => e.key !== desktopCacheKey)
+            .slice(-9);
+          desktopCache.entries.push(newEntry);
+          await saveDesktopScenarioCache(projectPath, desktopCache).catch(() => {});
+        }
       }
+
+      callbacks.onLog(`Scenario generation complete: ${plannedScenarios.length} scenarios`);
 
       execution.scenariosPlanned += plannedScenarios.length;
 
@@ -980,7 +970,7 @@ export async function runDesktopTestSession(
 
       if (plannedScenarios.length > 0) {
         out(`  Executing ${plannedScenarios.length} desktop scenario${plannedScenarios.length === 1 ? "" : "s"}...\n`);
-        
+
         for (const scenario of plannedScenarios) {
           out(`\n  ▶ ${scenario.name}\n`);
           execution.scenariosExecuted++;
@@ -998,7 +988,7 @@ export async function runDesktopTestSession(
                 out(`    ✓ ${action.description || `Press ${action.key}`}\n`);
               } else if (action.type === "screenshot") {
                 const scenarioScreenshotPath = join(screenshotDir, `scenario-${execution.screenshots}.png`);
-      const screenshotBuffer = await captureElectronScreenshot(desktopSession!);
+                const screenshotBuffer = await captureElectronScreenshot(desktopSession!);
                 await writeFile(scenarioScreenshotPath, screenshotBuffer);
                 execution.screenshots++;
                 out(`    ✓ ${action.description || "Screenshot"} 📸\n`);
@@ -1011,12 +1001,12 @@ export async function runDesktopTestSession(
         }
       }
 
-      await updateStep(steps, 6, "passed", callbacks);
+      await updateStep(steps, 4, "passed", callbacks);
     }
 
-    // ── Step 8: Generate report ──────────────────────
+    // ── Step 6: Generate report ──────────────────────
     callbacks.onPhaseChange("reporting", "Generating test report...");
-    await updateStep(steps, 7, "running", callbacks);
+    await updateStep(steps, 5, "running", callbacks);
 
     const report: TestReport = {
       id: runId,
@@ -1040,7 +1030,7 @@ export async function runDesktopTestSession(
     out(`> Report saved: ${toProjectRelativePath(projectPath, join(context.reportDir, "report.json"))}\n`);
 
     await saveDebugLog();
-    await updateStep(steps, 7, "passed", callbacks);
+    await updateStep(steps, 5, "passed", callbacks);
 
     callbacks.onPhaseChange("done", "Testing complete!");
     return report;
@@ -1059,90 +1049,6 @@ export async function runDesktopTestSession(
       }
     }
   }
-}
-
-function buildDesktopReconPrompt(
-  context: TestContext,
-  projectInfo: string,
-  notes: string,
-  uiStructure: string,
-  launchTarget: ResolvedDesktopLaunchTarget,
-): string {
-  return `You are testing a desktop application.
-
-## Project Context
-${projectInfo}
-
-## Notes
-${notes || "No project notes available."}
-
-## Launch Target
-Platform: ${launchTarget.platform}
-Source: ${launchTarget.source}
-${launchTarget.launchCommand ? `Launch Command: ${launchTarget.launchCommand}` : ""}
-
-## Current UI Structure
-\`\`\`
-${uiStructure.slice(0, 8000)}
-\`\`\`
-
-## Task
-Analyze the desktop application UI and create a test plan covering:
-1. Core functionality verification
-2. Navigation flows
-3. Input validation
-4. Error handling
-5. Accessibility checks
-
-IMPORTANT: NEVER include API keys, auth tokens, passwords, secrets, or any sensitive data in your test plan. If you find exposed secrets, flag it without repeating the actual value.
-
-Provide a numbered list of test items to validate the application.`;
-}
-
-function buildDesktopScenariosPrompt(
-  context: TestContext,
-  testPlan: string,
-  uiStructure: string,
-  launchTarget: ResolvedDesktopLaunchTarget,
-): string {
-  const actionPrompt = buildDesktopActionPrompt(launchTarget.platform);
-  
-  return `You are testing a desktop application on ${launchTarget.platform}.
-
-## Test Plan
-${testPlan}
-
-## Current UI Structure
-\`\`\`
-${uiStructure.slice(0, 8000)}
-\`\`\`
-
-## Available Actions
-${actionPrompt}
-
-## Task
-Generate test scenarios as a JSON array. Each scenario should have:
-- name: string
-- category: "happy-path" | "edge-case" | "abuse" | "boundary" | "error-recovery"
-- actions: array of action objects with type, selector, value (if needed), and description
-
-Example:
-\`\`\`json
-[
-  {
-    "name": "Test login flow",
-    "category": "happy-path",
-    "actions": [
-      { "type": "fill", "selector": "#username", "value": "test@example.com", "description": "Enter username" },
-      { "type": "tap", "selector": "#login-button", "description": "Click login" }
-    ]
-  }
-]
-\`\`\`
-
-IMPORTANT: NEVER include API keys, auth tokens, passwords, secrets, or any sensitive data in scenario values or descriptions. Use placeholder values for auth flows, never real credentials. Redact sensitive values as [REDACTED].
-
-Return ONLY the JSON array, no other text.`;
 }
 
 // ─── Native emulator test session ────────────────────────────
@@ -1199,15 +1105,13 @@ export async function runNativeTestSession(
     "Load project context & notes",
     "Resolve native launch strategy",
     "Boot emulator & launch app",
-    "Capture screenshots",
-    "Reconnaissance & test planning",
-    "Execute test scenarios",
+    "Generate & execute test scenarios",
     "Generate report",
   ];
   const steps: TestStep[] = nativeStepNames.map((name) => ({ name, status: "pending" }));
   callbacks.onStepUpdate(steps);
 
-  let debugLog = `GetWired Debug Log (Native ${options.nativePlatform})\nRun: ${runId}\nTimestamp: ${new Date().toISOString()}\nProvider: ${settings.provider}\nPersona: ${persona}\nPlatform: ${options.nativePlatform}\nURL: ${resolvedUrl ?? "(none)"}\n${"─".repeat(60)}\n\n`;
+  let debugLog = `GetWired Debug Log (Native ${options.nativePlatform})\nRun: ${runId}\nTimestamp: ${new Date().toISOString()}\nProvider: ${settings.provider}\nPersona: ${persona}\nPlatform: ${options.nativePlatform}\nURL: ${resolvedUrl ?? "(none)"}\n${options.scope ? `Scope: ${options.scope}\n` : ""}${"─".repeat(60)}\n\n`;
   let hybridSession: AppiumSession | null = null;
 
   const out = (text: string) => {
@@ -1223,8 +1127,10 @@ export async function runNativeTestSession(
       debugLog += `  ${icon} [${step.status}] ${step.name}\n`;
     }
     debugLog += `\nCompleted: ${new Date().toISOString()}\nDuration: ${Date.now() - startTime}ms\n`;
-    await writeFile(join(context.reportDir, "debug.log"), debugLog).catch(() => {});
+    await writeFile(join(context.reportDir, "debug.log"), sanitizeDebugLog(debugLog)).catch(() => {});
   };
+
+  out(`> Report folder: ${runId}\n`);
 
   for (const ignoredSource of ignoredSources) {
     const warning = `Ignoring ${ignoredSource} because GetWired only tests local apps on localhost or loopback addresses.`;
@@ -1259,16 +1165,17 @@ export async function runNativeTestSession(
   try {
     const platformLabel = options.nativePlatform === "android" ? "Android" : "iOS";
 
-    // ── Step 1: Scan project ─────────────────────────
+    // ── Steps 1 & 2: Scan project + Load notes (parallel) ──
     callbacks.onPhaseChange("scanning", "Scanning project structure...");
     await updateStep(steps, 0, "running", callbacks);
-    const projectInfo = await scanProject(projectPath, context);
-    await updateStep(steps, 0, "passed", callbacks, Date.now() - startTime);
-
-    // ── Step 2: Load notes & memory ──────────────────
-    callbacks.onPhaseChange("scanning", "Loading project context...");
     await updateStep(steps, 1, "running", callbacks);
-    const notes = await loadProjectNotes(projectPath);
+
+    const [projectInfo, notes] = await Promise.all([
+      scanProject(projectPath, context),
+      loadProjectNotes(projectPath),
+    ]);
+
+    await updateStep(steps, 0, "passed", callbacks, Date.now() - startTime);
     if (memory) out(`> Loaded memory from previous test sessions\n`);
     await updateStep(steps, 1, "passed", callbacks);
 
@@ -1445,32 +1352,10 @@ export async function runNativeTestSession(
 
     await updateStep(steps, 3, "passed", callbacks);
 
-    // ── Step 5: Capture screenshots ──────────────────
-    callbacks.onPhaseChange("capturing-current", `Capturing screenshots on ${platformLabel}...`);
+    // ── Step 5: Generate & execute test scenarios ────
+    callbacks.onPhaseChange("testing", personaProfile.phaseMessages.scenarios);
     await updateStep(steps, 4, "running", callbacks);
-    out(`> Taking screenshots on ${platformLabel}...\n`);
-
-    const screenshotPath = join(screenshotDir, `native-${options.nativePlatform}-initial.png`);
-    try {
-      if (options.nativePlatform === "android") {
-        const android = await import("../emulator/android-emulator.js");
-        await android.screenshot(screenshotPath, deviceId);
-      } else {
-        const ios = await import("../emulator/ios-simulator.js");
-        await ios.screenshot(screenshotPath, deviceId);
-      }
-      execution.screenshots++;
-      out(`  📸 Saved: ${toProjectRelativePath(projectPath, screenshotPath)}\n`);
-      await updateStep(steps, 4, "passed", callbacks, undefined, "Screenshot captured");
-    } catch (err) {
-      out(`  ! Screenshot failed: ${String(err).slice(0, 100)}\n`);
-      await updateStep(steps, 4, "failed", callbacks, undefined, "Screenshot capture failed");
-    }
-
-    // ── Step 6: Reconnaissance — get UI structure ────
-    callbacks.onPhaseChange("planning", personaProfile.phaseMessages.planning);
-    await updateStep(steps, 5, "running", callbacks);
-    out(`> ${settings.provider}: ${personaProfile.outputMessages.planning}\n\n`);
+    out(`> ${settings.provider}: ${personaProfile.outputMessages.scenarios}\n\n`);
 
     let uiStructure = "";
     let hybridContexts: AppiumContextInfo[] = [];
@@ -1538,131 +1423,122 @@ export async function runNativeTestSession(
           "Read the native accessibility tree / UI dump",
         ],
       });
-      await updateStep(steps, 5, "failed", callbacks, undefined, nativeUiDiagnostics.reason);
-      await updateStep(steps, 6, "failed", callbacks, undefined, "Skipped because the native UI dump was not actionable");
+      await updateStep(steps, 4, "failed", callbacks, undefined, nativeUiDiagnostics.reason);
     } else {
-      let testPlan = "";
-      let reusedCachedHybridPlan = false;
+      // Check hybrid cache for reusable scenarios
+      let reusedCachedHybridScenarios = false;
+      let plannedScenarios: InteractionScenario[] = [];
+
       if (automationMode === "hybrid" && hybridCacheKey) {
         const cache = await loadHybridScenarioCache(projectPath).catch(() => ({ version: 1 as const, entries: [] }));
         const cachedEntry = cache.entries.find((entry) => entry.key === hybridCacheKey);
-        if (cachedEntry?.plan) {
-          testPlan = cachedEntry.plan;
-          reusedCachedHybridPlan = true;
-          out(`  Reusing cached hybrid plan for ${cachedEntry.viewUrl ?? cachedEntry.title ?? "the current view"}\n`);
-          callbacks.onLog(`Reused cached hybrid plan for ${cachedEntry.viewUrl ?? cachedEntry.title ?? "current WEBVIEW"}`);
+        if (cachedEntry?.scenarios && cachedEntry.scenarios.length > 0) {
+          plannedScenarios = cachedEntry.scenarios;
+          reusedCachedHybridScenarios = true;
+          out(`  Reusing ${plannedScenarios.length} cached hybrid scenarios for ${cachedEntry.viewUrl ?? cachedEntry.title ?? "the current view"}\n`);
+          callbacks.onLog(`Reused cached hybrid scenarios for ${cachedEntry.viewUrl ?? cachedEntry.title ?? "current WEBVIEW"}`);
         }
       }
-      if (!testPlan) {
-        testPlan = await streamAnalyze(context, [
+
+      if (!reusedCachedHybridScenarios) {
+        // Single merged AI call: recon + scenario generation
+        const mergedResult = await streamAnalyze(context, [
           { role: "system", content: buildSystemPrompt(persona, memory, settings) },
           {
             role: "user",
             content: automationMode === "hybrid"
-              ? buildHybridReconPrompt(context, projectInfo, notes, uiStructure, nativeLaunchTarget, hybridContexts, hybridWebviewContext)
-              : buildNativeReconPrompt(context, projectInfo, notes, uiStructure, nativeLaunchTarget),
+              ? buildHybridMergedPrompt(context, projectInfo, notes, uiStructure, nativeLaunchTarget, hybridContexts, hybridWebviewContext)
+              : buildNativeMergedPrompt(context, projectInfo, notes, uiStructure, nativeLaunchTarget),
           },
         ]);
+
+        // Check if AI reported blocked interaction
+        const providerNativeBlocker = analyzeNativeProviderBlocker(mergedResult, nativeLaunchTarget);
+        if (providerNativeBlocker) {
+          const blockerMessage = `Native ${platformLabel} planning reported blocked interaction: ${providerNativeBlocker}`;
+          out(`  ! ${blockerMessage}\n`);
+          callbacks.onLog(blockerMessage);
+          findings.push({
+            id: `native-plan-${generateId()}`,
+            severity: "high",
+            category: "functional",
+            title: `${platformLabel} native planning detected a blocked UI tree`,
+            description: `${providerNativeBlocker} GetWired stopped before generating native interaction scenarios because the provider determined the native tree was not actionable.`,
+            device: "mobile",
+            steps: [
+              `Launch the app in ${platformLabel}`,
+              "Capture the initial device screenshot",
+              "Read the native accessibility tree / UI dump",
+              "Analyze the tree for actionable elements",
+            ],
+          });
+          await updateStep(steps, 5, "failed", callbacks, undefined, providerNativeBlocker);
+          await updateStep(steps, 4, "failed", callbacks, undefined, "Skipped because native interaction was blocked during planning");
+          nativeScenarioExecution = null;
+          await updateStep(steps, 4, "failed", callbacks, undefined, providerNativeBlocker);
+        } else {
+          const rawScenarios = parseScenarios(mergedResult);
+          let providerScenarios = validateScenarioActions(rawScenarios, options.nativePlatform, automationMode);
+          if (rawScenarios.length > 0 && providerScenarios.length < rawScenarios.length) {
+            const dropped = rawScenarios.length - providerScenarios.length;
+            out(`  Filtered ${dropped} scenario${dropped === 1 ? "" : "s"} with invalid action types\n`);
+          }
+          if (automationMode === "hybrid") {
+            const sanitized = sanitizeHybridScenarios(providerScenarios, uiStructure);
+            providerScenarios = sanitized.scenarios;
+            if (sanitized.droppedWeakSelectors > 0) {
+              out(`  Filtered ${sanitized.droppedWeakSelectors} hybrid action${sanitized.droppedWeakSelectors === 1 ? "" : "s"} with weak guessed selectors\n`);
+            }
+            if (sanitized.droppedEmptyScenarios > 0) {
+              out(`  Dropped ${sanitized.droppedEmptyScenarios} hybrid scenario${sanitized.droppedEmptyScenarios === 1 ? "" : "s"} that no longer had executable actions\n`);
+            }
+          }
+          if (automationMode === "hybrid" && providerScenarios.length > MAX_HYBRID_SCENARIOS) {
+            out(`  Capped hybrid scenario set from ${providerScenarios.length} to ${MAX_HYBRID_SCENARIOS} prioritized scenarios\n`);
+            providerScenarios = limitHybridScenarios(providerScenarios);
+          }
+          const providerExplicitlyReturnedNoScenarios = rawScenarios.length === 0
+            && explicitlyReturnedEmptyScenarioArray(mergedResult);
+          const usedBuiltInSmokeScenario = providerScenarios.length === 0 && !providerExplicitlyReturnedNoScenarios;
+          plannedScenarios = usedBuiltInSmokeScenario
+            ? buildBuiltInNativeSmokeScenarios()
+            : providerScenarios;
+
+          if (usedBuiltInSmokeScenario) {
+            out(`  ! Provider returned no executable native scenarios; using built-in native smoke scenario\n`);
+          } else if (providerExplicitlyReturnedNoScenarios) {
+            out(`  ! Provider explicitly returned no native scenarios; skipping smoke fallback\n`);
+          }
+
+          // Cache hybrid scenarios for next time
+          if (
+            automationMode === "hybrid"
+            && hybridCacheKey
+            && !usedBuiltInSmokeScenario
+            && plannedScenarios.length > 0
+          ) {
+            const updatedCache = upsertHybridScenarioCacheEntry(
+              await loadHybridScenarioCache(projectPath).catch(() => ({ version: 1 as const, entries: [] })),
+              {
+                key: hybridCacheKey,
+                createdAt: new Date().toISOString(),
+                platform: options.nativePlatform as "android" | "ios",
+                framework: nativeLaunchTarget.automation.framework,
+                viewUrl: hybridCacheViewUrl,
+                title: hybridCacheTitle,
+                plan: "", // No separate plan in merged flow
+                scenarios: plannedScenarios,
+              },
+            );
+            await saveHybridScenarioCache(projectPath, updatedCache).catch(() => {});
+          }
+        }
       }
-      const providerNativeBlocker = analyzeNativeProviderBlocker(testPlan, nativeLaunchTarget);
-      if (providerNativeBlocker) {
-        const blockerMessage = `Native ${platformLabel} planning reported blocked interaction: ${providerNativeBlocker}`;
-        out(`  ! ${blockerMessage}\n`);
-        callbacks.onLog(blockerMessage);
-        findings.push({
-          id: `native-plan-${generateId()}`,
-          severity: "high",
-          category: "functional",
-          title: `${platformLabel} native planning detected a blocked UI tree`,
-          description: `${providerNativeBlocker} GetWired stopped before generating native interaction scenarios because the provider determined the native tree was not actionable.`,
-          device: "mobile",
-          steps: [
-            `Launch the app in ${platformLabel}`,
-            "Capture the initial device screenshot",
-            "Read the native accessibility tree / UI dump",
-            "Analyze the tree for actionable elements",
-          ],
-        });
-        await updateStep(steps, 5, "failed", callbacks, undefined, providerNativeBlocker);
-        await updateStep(steps, 6, "failed", callbacks, undefined, "Skipped because native interaction was blocked during planning");
-      } else {
-        callbacks.onLog(`Test plan generated with ${countPlanSteps(testPlan)} items`);
-        await updateStep(steps, 5, "passed", callbacks);
 
-        // ── Step 7: Execute test scenarios ────────────────
-        callbacks.onPhaseChange("testing", personaProfile.phaseMessages.scenarios);
-        await updateStep(steps, 6, "running", callbacks, undefined, `Using ${platformLabel}`);
-        out(`\n> ${settings.provider}: ${personaProfile.outputMessages.scenarios}\n\n`);
+      if (plannedScenarios.length > 0) {
+        callbacks.onLog(`Scenario generation complete: ${plannedScenarios.length} scenarios`);
 
-        let plannedScenarios: InteractionScenario[] = [];
-        let providerExplicitlyReturnedNoScenarios = false;
-        let usedBuiltInSmokeScenario = false;
-        const scenarioPlanResult = await streamAnalyze(context, [
-          { role: "system", content: buildSystemPrompt(persona, memory, settings) },
-          {
-            role: "user",
-            content: automationMode === "hybrid"
-              ? buildHybridScenariosPrompt(context, testPlan, uiStructure, nativeLaunchTarget, hybridContexts, hybridWebviewContext)
-              : buildNativeScenariosPrompt(context, testPlan, uiStructure, nativeLaunchTarget),
-          },
-        ]);
-        const rawScenarios = parseScenarios(scenarioPlanResult);
-        let providerScenarios = validateScenarioActions(rawScenarios, options.nativePlatform, automationMode);
-        if (rawScenarios.length > 0 && providerScenarios.length < rawScenarios.length) {
-          const dropped = rawScenarios.length - providerScenarios.length;
-          out(`  Filtered ${dropped} scenario${dropped === 1 ? "" : "s"} with invalid action types\n`);
-        }
-        if (automationMode === "hybrid") {
-          const sanitized = sanitizeHybridScenarios(providerScenarios, uiStructure);
-          providerScenarios = sanitized.scenarios;
-          if (sanitized.droppedWeakSelectors > 0) {
-            out(`  Filtered ${sanitized.droppedWeakSelectors} hybrid action${sanitized.droppedWeakSelectors === 1 ? "" : "s"} with weak guessed selectors\n`);
-          }
-          if (sanitized.droppedEmptyScenarios > 0) {
-            out(`  Dropped ${sanitized.droppedEmptyScenarios} hybrid scenario${sanitized.droppedEmptyScenarios === 1 ? "" : "s"} that no longer had executable actions\n`);
-          }
-        }
-        if (automationMode === "hybrid" && providerScenarios.length > MAX_HYBRID_SCENARIOS) {
-          out(`  Capped hybrid scenario set from ${providerScenarios.length} to ${MAX_HYBRID_SCENARIOS} prioritized scenarios\n`);
-          providerScenarios = limitHybridScenarios(providerScenarios);
-        }
-        providerExplicitlyReturnedNoScenarios = rawScenarios.length === 0
-          && explicitlyReturnedEmptyScenarioArray(scenarioPlanResult);
-        usedBuiltInSmokeScenario = providerScenarios.length === 0 && !providerExplicitlyReturnedNoScenarios;
-        plannedScenarios = usedBuiltInSmokeScenario
-          ? buildBuiltInNativeSmokeScenarios()
-          : providerScenarios;
-
-        if (
-          automationMode === "hybrid"
-          && hybridCacheKey
-          && !usedBuiltInSmokeScenario
-          && plannedScenarios.length > 0
-        ) {
-          const updatedCache = upsertHybridScenarioCacheEntry(
-            await loadHybridScenarioCache(projectPath).catch(() => ({ version: 1 as const, entries: [] })),
-            {
-              key: hybridCacheKey,
-              createdAt: new Date().toISOString(),
-              platform: options.nativePlatform as "android" | "ios",
-              framework: nativeLaunchTarget.automation.framework,
-              viewUrl: hybridCacheViewUrl,
-              title: hybridCacheTitle,
-              plan: testPlan,
-              scenarios: plannedScenarios,
-            },
-          );
-          await saveHybridScenarioCache(projectPath, updatedCache).catch(() => {});
-        }
         execution.scenariosPlanned += plannedScenarios.length;
-
-        if (usedBuiltInSmokeScenario) {
-          out(`  ! Provider returned no executable native scenarios; using built-in native smoke scenario\n`);
-        } else if (providerExplicitlyReturnedNoScenarios) {
-          out(`  ! Provider explicitly returned no native scenarios; skipping smoke fallback\n`);
-        } else if (reusedCachedHybridPlan) {
-          callbacks.onLog(`Hybrid scenarios regenerated from cached plan (${plannedScenarios.length})`);
-        }
 
         if (plannedScenarios.length > 0) {
           if (automationMode === "hybrid") {
@@ -1712,28 +1588,26 @@ export async function runNativeTestSession(
 
         await updateStep(
           steps,
-          6,
+          4,
           scenarioExecutionPassed ? "passed" : "failed",
           callbacks,
           undefined,
           scenarioExecutionPassed
             ? failedScenarioCount > 0
-              ? `${usedBuiltInSmokeScenario ? "Executed built-in smoke flow with " : "Executed "}${completedScenarioCount} native scenario${completedScenarioCount === 1 ? "" : "s"}; ${failedScenarioCount} scenario${failedScenarioCount === 1 ? "" : "s"} had action failures`
-              : `${usedBuiltInSmokeScenario ? "Executed built-in smoke flow with " : "Executed "}${completedScenarioCount} native scenario${completedScenarioCount === 1 ? "" : "s"}`
+              ? `Executed ${completedScenarioCount} native scenario${completedScenarioCount === 1 ? "" : "s"}; ${failedScenarioCount} scenario${failedScenarioCount === 1 ? "" : "s"} had action failures`
+              : `Executed ${completedScenarioCount} native scenario${completedScenarioCount === 1 ? "" : "s"}`
             : failedScenarioCount > 0
               ? `${completedScenarioCount} scenario${completedScenarioCount === 1 ? "" : "s"} completed, ${failedScenarioCount} failed during execution`
-              : providerExplicitlyReturnedNoScenarios
-                ? "Provider explicitly returned no native scenarios"
-                : plannedScenarios.length === 0
+              : plannedScenarios.length === 0
                 ? "Provider returned no executable native scenarios"
                 : nativeScenarioExecution?.error ?? "Did not complete any scenario",
         );
       }
     }
 
-    // ── Step 8: Generate report ──────────────────────
+    // ── Step 6: Generate report ──────────────────────
     callbacks.onPhaseChange("reporting", "Generating report...");
-    await updateStep(steps, 7, "running", callbacks);
+    await updateStep(steps, 5, "running", callbacks);
 
     execution.evidenceMet = execution.screenshots > 0 && execution.scenariosExecuted > 0;
 
@@ -1851,9 +1725,7 @@ const PERSONA_PROFILES: Record<TestPersona, PersonaProfile> = {
     stepNames: [
       "Scan project structure",
       "Load project context & notes",
-      "Reconnaissance & test planning",
-      "First impression & screenshots",
-      "Compare with baselines",
+      "Crawl & plan scenarios",
       "Execute test scenarios",
       "Accessibility & keyboard-only",
       "Generate report",
@@ -1873,9 +1745,7 @@ const PERSONA_PROFILES: Record<TestPersona, PersonaProfile> = {
     stepNames: [
       "Scan project structure",
       "Load project context & notes",
-      "Reconnaissance & test planning",
-      "First impression & screenshots",
-      "Compare with baselines",
+      "Crawl & plan scenarios",
       "Execute test scenarios",
       "Accessibility & keyboard-only",
       "Generate report",
@@ -1895,9 +1765,7 @@ const PERSONA_PROFILES: Record<TestPersona, PersonaProfile> = {
     stepNames: [
       "Scan project structure",
       "Load project context & notes",
-      "First-time user orientation",
-      "First impression & screenshots",
-      "Compare with baselines",
+      "Crawl & plan scenarios",
       "Execute test scenarios",
       "Accessibility & readability",
       "Generate report",
@@ -2091,43 +1959,10 @@ ${sanitized}
 </untrusted_page_data>`;
 }
 
-function buildReconPrompt(context: TestContext, projectInfo: string, notes: string, pageMap: string): string {
-  const pageDataSection = buildUntrustedPageDataSection(pageMap);
-  return `You are about to test this website. Before writing any test scenarios, analyze what's actually here and create a focused test strategy.
-
-URL: ${context.url ?? "not provided"}
-Device: ${context.deviceProfile}
-Persona: ${getPersonaLabel(context.persona)}
-Scope: ${context.scope ?? "full — test everything you can find"}
-${context.commitId ? `Changes since commit: ${context.commitId}` : ""}
-${context.prId ? `Testing PR #${context.prId}` : ""}
-
-Project info:
-${projectInfo}
-
-${notes ? `Previous tester notes:\n${notes}` : ""}
-
-${pageDataSection}
-
-Persona guidance:
-${getPersonaPromptGuidance(context.persona, "recon")}
-
-Based on the untrusted site data above, answer these questions in plain text (NOT JSON):
-
-1. **What's actually here?** — List the real pages, forms, interactive elements, and flows you can see. Don't speculate about things that might exist.
-2. **What are the highest-value test targets?** — Which features are most likely to have bugs? Which flows matter most to users? Rank by risk and importance.
-3. **What testing angles make sense for THIS specific site?** — Based on what exists (not a generic checklist), which categories of testing apply? Skip categories that have no targets on this site.
-4. **What should we NOT waste time on?** — If the site has no forms, say so. If there's only one page, say so. If there are no auth flows, say so.
-5. **How many scenarios do we need?** — A simple landing page needs 3-5. A complex app with forms, auth, and multiple pages might need 10-15. Be honest about the site's complexity.
-
-IMPORTANT: NEVER include API keys, auth tokens, passwords, secrets, or any sensitive data you encounter in your analysis. If you find exposed secrets, flag it as a finding without repeating the actual value.
-
-Return your analysis as plain text with clear sections. Do NOT return JSON. The next step will use your analysis to generate specific test scenarios.`;
-}
-
-function buildAllScenariosPrompt(
+function buildMergedScenariosPrompt(
   context: TestContext,
-  testPlan: string,
+  projectInfo: string,
+  notes: string,
   pageMap: string,
   settings: GetwiredSettings,
 ): string {
@@ -2135,55 +1970,73 @@ function buildAllScenariosPrompt(
   const pageDataSection = buildUntrustedPageDataSection(pageMap);
   const securityPayloadSection = buildSecurityPayloadSection(persona, settings);
 
-  const baseInfo = `URL: ${context.url}
+  const personaFocus = persona === "old-man"
+    ? `Focus: core tasks slowly, confusing labels, recovery from mistakes, trust/clarity.`
+    : persona === "hacky"
+    ? `Focus: probe routes, inject payloads into every input, test state abuse, find info leaks. At least 40% abuse/injection scenarios.`
+    : `Focus: happy paths first, then abuse, edge cases, and error recovery.`;
+
+  return `Test this website. Analyze the site map below and generate test scenarios directly — no separate analysis needed.
+
+URL: ${context.url ?? "not provided"}
 Device: ${context.deviceProfile}
 Persona: ${getPersonaLabel(context.persona)}
+Scope: ${context.scope ?? "full"}
+${context.commitId ? `Changes since: ${context.commitId}` : ""}
+${context.prId ? `PR #${context.prId}` : ""}
 
-${pageDataSection ? `${pageDataSection}\n` : ""}
+Project: ${projectInfo.slice(0, 1000)}
+${notes ? `Notes: ${notes.slice(0, 500)}` : ""}
 
-Your earlier analysis of this site:
-${testPlan.slice(0, 4000)}`;
-
-  const personaFocus = persona === "old-man"
-    ? `You are testing as an older, low-tech user. Focus on:
-- Core tasks: try the most obvious actions slowly, favoring big buttons and plain wording
-- Confusion: where labels are ambiguous, icons lack text, success/error states are unclear
-- Recovery: what happens when you click the wrong thing, hit back, or get lost
-- Trust: slow feedback, scary-sounding actions, tiny text, jargon`
-    : persona === "hacky"
-    ? `You are testing as a skeptical but unprivileged browser user. Focus on:
-- Probing: try routes that shouldn't be public, manipulate URL params and IDs
-- Injection: for every form, input field, URL parameter, and header you discover, generate "fill" actions that use payloads from the Security Payload Reference and actively submit them
-- Coverage mix: at least 40% of your scenarios must be abuse or injection scenarios aimed at finding security flaws
-- Targeted payloads: test XSS in forms, SQLi in search/login params, template injection in text fields, and path traversal in URL params
-- State abuse: refresh mid-action, resubmit, back/forward to find stale state
-- Information leaks: error messages, disabled controls, hidden elements that reveal too much`
-    : `You are a thorough QA tester. Focus on:
-- Happy paths: the core flows real users complete
-- Abuse: what breaks when you submit garbage, navigate to bad URLs, or spam actions
-- Edge cases: boundary values, empty/overflow states, timing, responsive breakpoints
-- Error recovery: what happens when things go wrong and the user tries to recover`;
-
-  return `Now generate the actual test scenarios for this site. Use your earlier analysis — you already identified what's here and what's worth testing.
-
-${baseInfo}
+${pageDataSection}
 
 ${personaFocus}
+${securityPayloadSection ? `\n${securityPayloadSection}\n` : ""}
+Rules:
+- Match scenario count to site complexity: simple landing page = 3-5, complex app = 10-15.
+- Every scenario must target SPECIFIC elements from the site map. Use CSS selectors you can see above.
+- Each scenario tests something different. No duplicates.
+- 3-8 actions per scenario. Start each with a navigate action.
+- Order by bug likelihood.${persona === "hacky" ? " Injection first." : " Happy paths first."}
+- NEVER include secrets, tokens, or real credentials. Use placeholders.
 
-${securityPayloadSection ? `${securityPayloadSection}
+Return ONLY a JSON array:
+[{ "name": "...", "category": "happy-path|edge-case|abuse|boundary|error-recovery", "actions": [{ "type": "navigate|click|fill|select|scroll|wait|screenshot|keyboard|assert", "selector": "CSS selector", "value": "...", "url": "...", "key": "...", "description": "What and why" }] }]`;
+}
 
-` : ""}CRITICAL — read your analysis above and follow it:
-- Your analysis already identified what's on this site and what to skip. FOLLOW THAT. If you said "no forms exist," do not generate form-testing scenarios. If you said "simple landing page," generate 3-5 scenarios, not 15.
-- Every scenario must target a SPECIFIC element, page, or flow from the site map. Reference actual links, buttons, forms, and selectors you can see above.
-- Each scenario must test something genuinely different. If two scenarios would click the same button and fill the same form, merge them or drop one.
-- Order scenarios by how likely they are to find real bugs. ${persona === "hacky" ? "Injection and abuse scenarios first (most likely to find security bugs), then happy paths to catch regressions." : "Happy paths first (most likely to catch regressions), then targeted abuse of specific features."}
+function buildDesktopMergedPrompt(
+  context: TestContext,
+  projectInfo: string,
+  notes: string,
+  uiStructure: string,
+  launchTarget: ResolvedDesktopLaunchTarget,
+): string {
+  const actionPrompt = buildDesktopActionPrompt(launchTarget.platform);
 
-Return as a JSON array of interaction scenarios:
-[{ "name": "...", "category": "happy-path|edge-case|abuse|boundary|error-recovery", "actions": [{ "type": "navigate|click|fill|select|scroll|wait|screenshot|keyboard|assert", "selector": "CSS selector", "value": "...", "url": "...", "key": "...", "description": "What you're doing and why" }] }]
+  return `Test this desktop application. Analyze the UI structure and generate test scenarios directly.
 
-IMPORTANT: NEVER include API keys, auth tokens, passwords, secrets, or any sensitive data in scenario values or descriptions. If testing auth flows, use placeholder values like "test@example.com" and "TestPassword123", never real credentials.
+Platform: ${launchTarget.platform}
+Source: ${launchTarget.source}
+${launchTarget.launchCommand ? `Launch: ${launchTarget.launchCommand}` : ""}
 
-Use 3-8 actions per scenario. Use CSS selectors from the site map (prefer visible text, roles, placeholders over fragile IDs). Start each scenario with a navigate action.`;
+Project: ${projectInfo.slice(0, 1000)}
+${notes ? `Notes: ${notes.slice(0, 500)}` : ""}
+
+UI Structure:
+\`\`\`
+${uiStructure.slice(0, 8000)}
+\`\`\`
+
+Available Actions:
+${actionPrompt}
+
+Rules:
+- Cover core functionality, navigation, input validation, error handling, accessibility.
+- Each scenario tests something different. 3-8 actions each.
+- NEVER include secrets or real credentials. Redact as [REDACTED].
+
+Return ONLY a JSON array:
+[{ "name": "...", "category": "happy-path|edge-case|abuse|boundary|error-recovery", "actions": [{ "type": "fill|tap|keyboard|screenshot", "selector": "...", "value": "...", "description": "..." }] }]`;
 }
 
 function buildAccessibilityPrompt(context: TestContext, pageMap: string): string {
@@ -2216,129 +2069,46 @@ Return findings as a JSON array with severity, category "accessibility", and spe
 
 // ─── Native emulator prompts ─────────────────────────────
 
-function buildNativeReconPrompt(
+function buildNativeMergedPrompt(
   context: TestContext,
   projectInfo: string,
   notes: string,
-  uiStructure: string,
-  target: import("../emulator/native-launch.js").ResolvedNativeLaunchTarget,
-): string {
-  const platformLabel = target.platform === "android" ? "Android Emulator" : "iOS Simulator";
-  return `You are about to test this native mobile app on a real ${platformLabel}. Analyze the current UI state and create a focused test strategy.
-
-Local app URL: ${context.url}
-Platform: ${platformLabel}
-Launch target: ${describeNativeLaunchTarget(target)}
-Device: mobile (native)
-Persona: ${getPersonaLabel(context.persona)}
-${context.scope ? `Scope: ${context.scope}` : ""}
-
-Project info:
-${projectInfo}
-
-${notes ? `Project notes:\n${notes}\n` : ""}
-
-${uiStructure ? `Device UI structure (from ${target.platform === "android" ? "uiautomator" : "simulator"}):\n${uiStructure.slice(0, 8000)}\n` : ""}
-
-If the UI structure is empty, root-only, or explicitly reports zero children, stop and say native interaction is blocked instead of inventing elements or routes.
-
-Focus on mobile-native concerns:
-- Touch target sizes (minimum 48x48dp on Android, 44x44pt on iOS)
-- Viewport and responsive layout on the actual device
-- Text readability and font sizing on mobile screens
-- Navigation patterns (back button behavior, swipe gestures)
-- Form input behavior with on-screen keyboard
-- Orientation changes and layout adaptation
-- Performance and loading behavior on the emulator
-- Any content that is cut off or requires horizontal scrolling
-
-IMPORTANT: NEVER include API keys, auth tokens, passwords, secrets, or any sensitive data in your test plan. If you find exposed secrets, flag it without repeating the actual value.
-
-Create a numbered test plan. Focus on what's actually on the page. Be specific.`;
-}
-
-function buildHybridReconPrompt(
-  context: TestContext,
-  projectInfo: string,
-  notes: string,
-  webviewSummary: string,
-  target: import("../emulator/native-launch.js").ResolvedNativeLaunchTarget,
-  contexts: AppiumContextInfo[],
-  activeContext: AppiumContextInfo | null,
-): string {
-  const platformLabel = target.platform === "android" ? "Android Emulator" : "iOS Simulator";
-  return `You are about to test a hybrid mobile app on a real ${platformLabel}. The app was launched natively, but interaction happens inside an Appium WEBVIEW context.
-
-Local app URL: ${context.url}
-Platform: ${platformLabel}
-Launch target: ${describeNativeLaunchTarget(target)}
-Automation mode: hybrid ${target.automation.framework}
-Device: mobile (native shell + WEBVIEW)
-Persona: ${getPersonaLabel(context.persona)}
-${context.scope ? `Scope: ${context.scope}` : ""}
-
-Project info:
-${projectInfo}
-
-${notes ? `Project notes:\n${notes}\n` : ""}
-
-Available Appium contexts:
-${JSON.stringify(contexts, null, 2)}
-
-${activeContext ? `Active WEBVIEW context: ${activeContext.id}\n` : ""}
-${webviewSummary ? `Current WEBVIEW DOM summary:\n${webviewSummary.slice(0, 12000)}\n` : ""}
-
-If there is no WEBVIEW context, or the WEBVIEW summary is empty, stop and say hybrid interaction is blocked instead of inventing selectors or routes.
-
-Focus on hybrid-app concerns:
-- Real user flows inside the WEBVIEW, not native shell speculation
-- Route changes and state transitions inside the installed app
-- Keyboard/input behavior inside the embedded web app
-- Layout issues on the actual device viewport
-- Areas where native shell behavior and web content may conflict
-
-IMPORTANT: NEVER include API keys, auth tokens, passwords, secrets, or any sensitive data in your test plan. If you find exposed secrets, flag it without repeating the actual value.
-
-Create a numbered test plan with 6-10 prioritized items. Focus on what's actually exposed in the WEBVIEW. Be specific, and prefer flows whose selectors are already present in the DOM summary.`;
-}
-
-function buildNativeScenariosPrompt(
-  context: TestContext,
-  testPlan: string,
   uiStructure: string,
   target: import("../emulator/native-launch.js").ResolvedNativeLaunchTarget,
 ): string {
   const platformLabel = target.platform === "android" ? "Android Emulator" : "iOS Simulator";
   const actionReference = buildActionPrompt(target.platform);
-  return `Generate executable native-device test scenarios for the ${platformLabel}. These scenarios will be run by GetWired on the device, so every step must be concrete and actionable.
 
-Local app URL: ${context.url}
+  return `Test this native mobile app on ${platformLabel}. Analyze the UI structure and generate test scenarios directly.
+
+URL: ${context.url}
 Platform: ${platformLabel}
-Launch target: ${describeNativeLaunchTarget(target)}
+Target: ${describeNativeLaunchTarget(target)}
 Persona: ${getPersonaLabel(context.persona)}
+${context.scope ? `Scope: ${context.scope}` : ""}
 
-Test Plan:
-${testPlan}
+Project: ${projectInfo.slice(0, 1000)}
+${notes ? `Notes: ${notes.slice(0, 500)}` : ""}
 
-${uiStructure ? `Current UI structure:\n${uiStructure.slice(0, 8000)}\n` : ""}
+${uiStructure ? `UI structure (${target.platform === "android" ? "uiautomator" : "simulator"}):\n${uiStructure.slice(0, 8000)}\n` : ""}
 
 ${actionReference}
 
-If the current UI structure is sparse, root-only, or reports zero children, return [] instead of guessing labels or flows.
+If the UI structure is empty, root-only, or reports zero children, say "native interaction is blocked" and return [].
 
-Focus on real mobile-native issues:
-- Elements too small to tap
-- Content cut off on small screens
-- Keyboard covering inputs
-- Missing back/recovery paths
-- Jank or delayed state changes
+Rules:
+- Focus on touch targets (48dp Android/44pt iOS), viewport layout, keyboard behavior, navigation, orientation.
+- Each scenario tests something different. 3-8 actions each.
+- NEVER include secrets or real credentials. Redact as [REDACTED].
 
-IMPORTANT: NEVER include API keys, auth tokens, passwords, secrets, or any sensitive data in scenario values or descriptions. Use placeholder values for auth flows, never real credentials.`;
+Return a JSON array of scenarios:
+[{ "name": "...", "category": "happy-path|edge-case|abuse|boundary|error-recovery", "actions": [{ "type": "...", "selector": "...", "value": "...", "description": "..." }] }]`;
 }
 
-function buildHybridScenariosPrompt(
+function buildHybridMergedPrompt(
   context: TestContext,
-  testPlan: string,
+  projectInfo: string,
+  notes: string,
   webviewSummary: string,
   target: import("../emulator/native-launch.js").ResolvedNativeLaunchTarget,
   contexts: AppiumContextInfo[],
@@ -2346,44 +2116,36 @@ function buildHybridScenariosPrompt(
 ): string {
   const platformLabel = target.platform === "android" ? "Android Emulator" : "iOS Simulator";
   const actionReference = buildActionPrompt(target.platform, "hybrid");
-  return `Generate executable hybrid-app test scenarios for the ${platformLabel}. The app is already running natively, and GetWired will execute these steps through an Appium WEBVIEW context.
 
-Local app URL: ${context.url}
+  return `Test this hybrid mobile app on ${platformLabel}. The app runs natively with an Appium WEBVIEW context. Analyze and generate scenarios directly.
+
+URL: ${context.url}
 Platform: ${platformLabel}
-Launch target: ${describeNativeLaunchTarget(target)}
-Automation mode: hybrid ${target.automation.framework}
+Target: ${describeNativeLaunchTarget(target)}
+Mode: hybrid ${target.automation.framework}
 Persona: ${getPersonaLabel(context.persona)}
+${context.scope ? `Scope: ${context.scope}` : ""}
 
-Test Plan:
-${testPlan}
+Project: ${projectInfo.slice(0, 1000)}
+${notes ? `Notes: ${notes.slice(0, 500)}` : ""}
 
-Available Appium contexts:
-${JSON.stringify(contexts, null, 2)}
-
-${activeContext ? `Active WEBVIEW context: ${activeContext.id}\n` : ""}
-${webviewSummary ? `Current WEBVIEW DOM summary:\n${webviewSummary.slice(0, 12000)}\n` : ""}
+Appium contexts: ${JSON.stringify(contexts, null, 2)}
+${activeContext ? `Active WEBVIEW: ${activeContext.id}\n` : ""}
+${webviewSummary ? `WEBVIEW DOM:\n${webviewSummary.slice(0, 12000)}\n` : ""}
 
 ${actionReference}
 
-If there is no WEBVIEW context, or the DOM summary is empty, return [] instead of guessing selectors or flows.
+If no WEBVIEW context or empty DOM, say "hybrid interaction is blocked" and return [].
 
-Focus on real hybrid-app issues:
-- Broken or missing DOM interactions inside the app WebView
-- Elements that exist but are not clickable or fillable in the embedded app
-- Routing/state bugs inside the installed app
-- Inputs, tabs, and buttons that break in the device viewport
-- Areas where embedded auth/payment flows are fragile
-
-Only return the most executable coverage:
-- Reuse selectors or selectorCandidates exactly as shown in the DOM summary whenever possible.
-- Prefer stable CSS selectors over XPath. Use XPath only when the summary gives no stable CSS candidate.
-- Generic selectors like \`button[type="button"]\`, \`//button\`, \`button\`, or \`[role=button]\` are too weak and will be rejected.
-- Skip flows that rely on unlabeled or guess-only controls.
-- If an element is mentioned in the plan but is not directly represented in the current DOM summary, do not generate a required click path for it.
-- Optional probes like debug tools or secondary CTAs should prefer an assert plus screenshot evidence over brittle click chains.
+Rules:
+- Focus on WEBVIEW interactions: DOM elements, routing, state, keyboard, layout on device viewport.
+- Reuse selectors from DOM summary. Prefer stable CSS over XPath.
+- Generic selectors like \`button\`, \`[role=button]\` are too weak — skip them.
 - Return at most ${MAX_HYBRID_SCENARIOS} scenarios, prioritized by value and selector confidence.
+- NEVER include secrets or real credentials. Redact as [REDACTED].
 
-IMPORTANT: NEVER include API keys, auth tokens, passwords, secrets, or any sensitive data in scenario values or descriptions. Use placeholder values for auth flows, never real credentials. Redact sensitive values as [REDACTED].`;
+Return a JSON array:
+[{ "name": "...", "category": "happy-path|edge-case|abuse|boundary|error-recovery", "actions": [{ "type": "...", "selector": "...", "value": "...", "description": "..." }] }]`;
 }
 
 function buildBuiltInNativeSmokeScenarios(): InteractionScenario[] {
@@ -2913,6 +2675,180 @@ async function executeScenarios(
   return stats;
 }
 
+// ─── Stream-and-execute: parse scenarios incrementally and run each one immediately ───
+async function streamAndExecuteScenarios(
+  context: TestContext,
+  persona: TestPersona,
+  memory: string | undefined,
+  settings: GetwiredSettings,
+  projectInfo: string,
+  notes: string,
+  pageMap: string,
+  provider: TestingProvider,
+  out: (text: string) => void,
+  ab: typeof import("../browser/agent-browser.js") | undefined,
+  execution: TestExecutionSummary,
+  onFindings: (findings: TestFinding[]) => void,
+  callbacks: OrchestratorCallbacks,
+): Promise<ScenarioExecutionResult & { generatedScenarios: InteractionScenario[] }> {
+  const stats: ScenarioExecutionResult & { generatedScenarios: InteractionScenario[] } = {
+    findings: [],
+    browserSessions: 0,
+    navigations: 0,
+    screenshots: 0,
+    executedScenarios: 0,
+    failedScenarios: 0,
+    generatedScenarios: [],
+  };
+
+  if (!ab) ab = await import("../browser/agent-browser.js");
+
+  const messages: { role: "user" | "assistant" | "system"; content: string }[] = [
+    { role: "system", content: buildSystemPrompt(persona, memory, settings) },
+    { role: "user", content: buildMergedScenariosPrompt(context, projectInfo, notes, pageMap, settings) },
+  ];
+
+  let full = "";
+  let lastParsedEnd = 0;
+
+  // Track persona for activity messages
+  const toolActivity = (name: string) => toolCallActivity(name, persona);
+
+  for await (const chunk of provider.stream(context, messages)) {
+    if (chunk.type === "text" && chunk.content) {
+      out(chunk.content);
+      full += chunk.content;
+
+      // Try to extract complete scenarios incrementally
+      const newScenarios = extractIncrementalScenarios(full, lastParsedEnd);
+      if (newScenarios.extracted.length > 0) {
+        lastParsedEnd = newScenarios.parsedUpTo;
+
+        for (const scenario of newScenarios.extracted) {
+          if (!scenario.name || !Array.isArray(scenario.actions) || scenario.actions.length === 0) continue;
+          stats.generatedScenarios.push(scenario);
+          execution.scenariosPlanned++;
+
+          // Execute immediately
+          out(`\n> Executing scenario: ${scenario.name}...\n`);
+          const scenarioResult = await executeScenarios([scenario], context, settings, out, ab);
+          stats.browserSessions += scenarioResult.browserSessions;
+          stats.navigations += scenarioResult.navigations;
+          stats.screenshots += scenarioResult.screenshots;
+          stats.executedScenarios += scenarioResult.executedScenarios;
+          stats.failedScenarios += scenarioResult.failedScenarios;
+          if (scenarioResult.findings.length > 0) {
+            stats.findings.push(...scenarioResult.findings);
+          }
+          if (scenarioResult.error) {
+            stats.error = scenarioResult.error;
+          }
+        }
+      }
+    } else if (chunk.type === "tool_call" && chunk.toolCall) {
+      out(`> ${toolActivity(chunk.toolCall.name)}\n`);
+    }
+  }
+  out("\n");
+
+  // Final pass: try to parse any remaining scenarios from the full output
+  // that weren't caught incrementally
+  const finalScenarios = parseScenarios(full);
+  const alreadyExecuted = new Set(stats.generatedScenarios.map((s) => s.name));
+  const remaining = finalScenarios.filter((s) => !alreadyExecuted.has(s.name));
+
+  if (remaining.length > 0) {
+    for (const scenario of remaining) {
+      stats.generatedScenarios.push(scenario);
+      execution.scenariosPlanned++;
+      out(`\n> Executing remaining scenario: ${scenario.name}...\n`);
+      const scenarioResult = await executeScenarios([scenario], context, settings, out, ab);
+      stats.browserSessions += scenarioResult.browserSessions;
+      stats.navigations += scenarioResult.navigations;
+      stats.screenshots += scenarioResult.screenshots;
+      stats.executedScenarios += scenarioResult.executedScenarios;
+      stats.failedScenarios += scenarioResult.failedScenarios;
+      if (scenarioResult.findings.length > 0) {
+        stats.findings.push(...scenarioResult.findings);
+      }
+    }
+  }
+
+  return stats;
+}
+
+/**
+ * Incrementally extract complete scenario objects from a growing JSON stream.
+ * Looks for `}, {` or `}]` boundaries to identify complete scenario objects.
+ */
+function extractIncrementalScenarios(
+  content: string,
+  startFrom: number,
+): { extracted: InteractionScenario[]; parsedUpTo: number } {
+  const extracted: InteractionScenario[] = [];
+  let parsedUpTo = startFrom;
+
+  // Find the array start if we haven't yet
+  const arrayStart = content.indexOf("[{");
+  if (arrayStart === -1 || arrayStart >= content.length - 2) {
+    return { extracted, parsedUpTo };
+  }
+
+  // Work from where we left off
+  const searchFrom = Math.max(startFrom, arrayStart);
+
+  // Find complete scenario objects by looking for `},` or `}]` patterns
+  // that close a top-level object in the array
+  let depth = 0;
+  let inString = false;
+  let escaping = false;
+  let objectStart = -1;
+
+  for (let i = searchFrom; i < content.length; i++) {
+    const char = content[i]!;
+
+    if (escaping) {
+      escaping = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaping = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (char === "{") {
+      if (depth === 0) objectStart = i;
+      depth++;
+    } else if (char === "}") {
+      depth--;
+      if (depth === 0 && objectStart !== -1) {
+        // We have a complete top-level object
+        const objectStr = content.slice(objectStart, i + 1);
+        try {
+          const parsed = JSON.parse(objectStr) as InteractionScenario;
+          if (parsed.name && Array.isArray(parsed.actions)) {
+            extracted.push(parsed);
+            parsedUpTo = i + 1;
+          }
+        } catch {
+          // Incomplete or invalid JSON — skip
+        }
+        objectStart = -1;
+      }
+    }
+  }
+
+  return { extracted, parsedUpTo };
+}
+
 // ─── Real accessibility testing via agent-browser ─────────────
 async function testAccessibility(
   context: TestContext,
@@ -3217,6 +3153,82 @@ async function loadHybridScenarioCache(projectPath: string): Promise<HybridScena
 async function saveHybridScenarioCache(projectPath: string, cache: HybridScenarioCacheFile): Promise<void> {
   const cachePath = getHybridScenarioCachePath(projectPath);
   await writeFile(cachePath, JSON.stringify(cache, null, 2), "utf-8");
+}
+
+// ─── Web scenario cache ─────────────────────────────────────
+async function loadWebScenarioCache(projectPath: string): Promise<WebScenarioCacheFile> {
+  const cachePath = getWebScenarioCachePath(projectPath);
+  if (!existsSync(cachePath)) return { version: 1, entries: [] };
+  try {
+    const raw = await readFile(cachePath, "utf-8");
+    const parsed = JSON.parse(raw) as Partial<WebScenarioCacheFile>;
+    return {
+      version: 1,
+      entries: Array.isArray(parsed.entries)
+        ? parsed.entries.filter((entry): entry is WebScenarioCacheEntry =>
+          Boolean(
+            entry
+            && typeof entry.key === "string"
+            && Array.isArray(entry.scenarios),
+          ))
+        : [],
+    };
+  } catch {
+    return { version: 1, entries: [] };
+  }
+}
+
+async function saveWebScenarioCache(projectPath: string, cache: WebScenarioCacheFile): Promise<void> {
+  const cachePath = getWebScenarioCachePath(projectPath);
+  await writeFile(cachePath, JSON.stringify(cache, null, 2), "utf-8");
+}
+
+function buildWebScenarioCacheKey(url: string, pageMap: string, persona: TestPersona): string {
+  const hash = createHash("sha256")
+    .update(url)
+    .update(pageMap)
+    .update(persona)
+    .digest("hex")
+    .slice(0, 16);
+  return `web-${hash}`;
+}
+
+// ─── Desktop scenario cache ─────────────────────────────────
+async function loadDesktopScenarioCache(projectPath: string): Promise<DesktopScenarioCacheFile> {
+  const cachePath = getDesktopScenarioCachePath(projectPath);
+  if (!existsSync(cachePath)) return { version: 1, entries: [] };
+  try {
+    const raw = await readFile(cachePath, "utf-8");
+    const parsed = JSON.parse(raw) as Partial<DesktopScenarioCacheFile>;
+    return {
+      version: 1,
+      entries: Array.isArray(parsed.entries)
+        ? parsed.entries.filter((entry): entry is DesktopScenarioCacheEntry =>
+          Boolean(
+            entry
+            && typeof entry.key === "string"
+            && Array.isArray(entry.scenarios),
+          ))
+        : [],
+    };
+  } catch {
+    return { version: 1, entries: [] };
+  }
+}
+
+async function saveDesktopScenarioCache(projectPath: string, cache: DesktopScenarioCacheFile): Promise<void> {
+  const cachePath = getDesktopScenarioCachePath(projectPath);
+  await writeFile(cachePath, JSON.stringify(cache, null, 2), "utf-8");
+}
+
+function buildDesktopScenarioCacheKey(uiStructure: string, persona: TestPersona, platform: string): string {
+  const hash = createHash("sha256")
+    .update(uiStructure)
+    .update(persona)
+    .update(platform)
+    .digest("hex")
+    .slice(0, 16);
+  return `desktop-${hash}`;
 }
 
 function buildHybridScenarioCacheKey(
@@ -3985,62 +3997,6 @@ async function resolveTestUrl(
   };
 }
 
-async function compareWithBaselines(
-  captures: Array<{ path: string; url: string; device: "desktop" | "mobile" }>,
-  context: TestContext,
-  settings: GetwiredSettings,
-  provider: TestingProvider,
-  callbacks: OrchestratorCallbacks,
-): Promise<TestFinding[]> {
-  const findings: TestFinding[] = [];
-
-  for (const capture of captures) {
-    const baselineDir = getBaselineDir(context.projectPath);
-    if (!existsSync(baselineDir)) continue;
-
-    const baselineFiles = await readdir(baselineDir);
-    const matchingBaseline = baselineFiles.find(
-      (f) => f.includes(capture.device) && capture.url.includes(f.split("-")[0]),
-    );
-
-    if (!matchingBaseline) {
-      callbacks.onLog(`No baseline for ${capture.device} ${capture.url} — saving as new baseline`);
-      continue;
-    }
-
-    const result = await compareScreenshots({
-      baselinePath: join(baselineDir, matchingBaseline),
-      currentPath: capture.path,
-      outputDir: join(context.reportDir, "diffs"),
-      threshold: settings.testing.diffThreshold,
-    });
-
-    if (result.isRegression) {
-      callbacks.onLog(
-        `UI change detected: ${(result.diffPercentage * 100).toFixed(1)}% pixels changed on ${capture.device}`,
-      );
-
-      const baselineB64 = await imageToBase64(result.baselinePath);
-      const currentB64 = await imageToBase64(result.currentPath);
-      const diffB64 = await imageToBase64(result.diffPath);
-
-      const aiFindings = await provider.evaluateRegression(
-        baselineB64, currentB64, diffB64, capture.url, capture.device,
-      );
-
-      findings.push(
-        ...aiFindings.map((f) => ({
-          ...f,
-          screenshotPath: capture.path,
-          diffScreenshotPath: result.diffPath,
-        })),
-      );
-    }
-  }
-
-  return findings;
-}
-
 function parseScenarios(content: string): InteractionScenario[] {
   const parsed = extractJsonArray(content, isScenarioArray);
   if (!parsed) return [];
@@ -4167,10 +4123,11 @@ function shouldTreatHybridActionFailureAsTooling(
 
 function didVerifyHybridWebviewRun(report: TestReport): boolean {
   const stepSummary = report.steps ?? [];
-  const reconPassed = stepSummary.some((step) => step.name === "Reconnaissance & test planning" && step.status === "passed");
-  const scenariosPassed = stepSummary.some((step) => step.name === "Execute test scenarios" && step.status === "passed");
-  return reconPassed
-    && scenariosPassed
+  const scenariosPassed = stepSummary.some((step) =>
+    (step.name === "Execute test scenarios" || step.name === "Generate & execute test scenarios" || step.name === "Crawl & plan scenarios")
+    && step.status === "passed",
+  );
+  return scenariosPassed
     && (report.execution?.scenariosExecuted ?? 0) > 0;
 }
 
@@ -4541,14 +4498,6 @@ function isFindingArray(value: unknown): value is TestFinding[] {
   return Array.isArray(value) && value.every((item) => item && typeof item === "object");
 }
 
-function countPlanSteps(plan: string): number {
-  // Plan is now plain text — count numbered items, bullet points, or section headers
-  const numbered = plan.split("\n").filter((l) => l.trim().match(/^\d+\./)).length;
-  const bulleted = plan.split("\n").filter((l) => l.trim().match(/^[-*]\s/)).length;
-  return numbered || bulleted || 1;
-}
-
-
 async function updateStep(
   steps: TestStep[],
   index: number,
@@ -4566,6 +4515,61 @@ async function updateStep(
 function toProjectRelativePath(projectPath: string, targetPath: string): string {
   const relativePath = relative(projectPath, targetPath);
   return relativePath && !relativePath.startsWith("..") ? relativePath : targetPath;
+}
+
+/**
+ * Sanitize debug log content before writing to disk.
+ * - Strips fenced code blocks (project source code the AI quoted)
+ * - Redacts API keys, tokens, passwords, secrets, cookies, and env var values
+ */
+function sanitizeDebugLog(content: string): string {
+  // Strip fenced code blocks — the AI often quotes project source code
+  let sanitized = content.replace(
+    /```[\s\S]*?```/g,
+    "[code block removed]",
+  );
+
+  // Redact common secret patterns: key=VALUE, token=VALUE, password=VALUE, etc.
+  sanitized = sanitized.replace(
+    /\b(api[_-]?key|apikey|token|access[_-]?token|secret|password|passwd|auth[_-]?token|bearer|session[_-]?id|private[_-]?key|client[_-]?secret)\s*[:=]\s*["']?([^\s"',}{)\]]{4,})["']?/gi,
+    (_, label) => `${label}=[REDACTED]`,
+  );
+
+  // Redact Bearer tokens in headers
+  sanitized = sanitized.replace(
+    /Bearer\s+[A-Za-z0-9._\-+/=]{10,}/gi,
+    "Bearer [REDACTED]",
+  );
+
+  // Redact JWT-like tokens (three base64 segments separated by dots)
+  sanitized = sanitized.replace(
+    /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_\-+/=]{10,}/g,
+    "[REDACTED_JWT]",
+  );
+
+  // Redact long hex strings that look like API keys or hashes (32+ chars)
+  sanitized = sanitized.replace(
+    /\b[0-9a-f]{32,}\b/gi,
+    (match) => {
+      // Keep git commit hashes (exactly 40 hex) and our own IDs
+      if (match.length === 40) return match;
+      return "[REDACTED_HEX]";
+    },
+  );
+
+  // Redact cookie values: name=value patterns in cookie contexts
+  sanitized = sanitized.replace(
+    /(?:cookie|Cookie|set-cookie|Set-Cookie)[:\s]+([^\n]{4,})/gi,
+    (match) => match.replace(/=([^;,\s]{8,})/g, "=[REDACTED]"),
+  );
+
+  // Redact env var references that were resolved (e.g. $ENV_VAR resolved to actual value)
+  sanitized = sanitized.replace(
+    /\$[A-Z_][A-Z0-9_]*\s*(?:resolved\s+to|=)\s*["']?([^\s"']{4,})["']?/gi,
+    (match) => match.replace(/(?:resolved\s+to|=)\s*["']?[^\s"']{4,}["']?/, "=[REDACTED]"),
+  );
+
+  return sanitized;
 }
 
 function generateId(): string {
@@ -4690,7 +4694,7 @@ function getDevCommand(projectPath: string): { cmd: string; args: string[]; port
   try {
     const pkgPath = join(projectPath, "package.json");
     if (!existsSync(pkgPath)) return undefined;
-    const pkg = JSON.parse(require("node:fs").readFileSync(pkgPath, "utf-8"));
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
     const scripts = pkg.scripts ?? {};
     const scriptName = scripts.dev ? "dev" : scripts.start ? "start" : undefined;
     if (!scriptName) return undefined;
@@ -4772,4 +4776,178 @@ async function tryStartDevServer(
 
   callbacks.onLog(`Dev server is ready on port ${devCmd.port}`);
   return { process: child, url: `http://localhost:${devCmd.port}`, port: devCmd.port };
+}
+
+/**
+ * When a URL is provided (e.g. http://localhost:5173), check if the server
+ * is actually responding. If not, try to auto-start the dev server.
+ *
+ * Detection strategy (in order):
+ * 1. Walk up directories looking for package.json with dev/start scripts
+ * 2. Ask the AI provider to analyze the project and suggest a start command
+ * 3. Throw with a clear error if nothing works
+ */
+async function ensureServerRunning(
+  url: string,
+  projectPath: string,
+  out: (text: string) => void,
+  callbacks: OrchestratorCallbacks,
+  provider?: TestingProvider,
+  context?: TestContext,
+): Promise<DevServerInfo | undefined> {
+  let port: number;
+  try {
+    const parsed = new URL(url);
+    port = parseInt(parsed.port, 10) || (parsed.protocol === "https:" ? 443 : 80);
+  } catch {
+    return undefined;
+  }
+
+  // Quick check — is the server already responding?
+  if (await isPortOpen(port)) return undefined;
+
+  out(`> Server at ${url} is not responding — attempting to auto-start...\n`);
+
+  // Strategy 1: Walk up directories looking for package.json with dev/start scripts
+  let devCmd = findDevCommand(projectPath);
+
+  // Strategy 2: If no script found and AI provider available, ask the AI
+  if (!devCmd && provider && context) {
+    out(`> No dev script detected — asking AI to analyze the project...\n`);
+    devCmd = await aiDetectStartCommand(projectPath, port, provider, context, out);
+  }
+
+  if (!devCmd) {
+    throw new Error(
+      `Server at ${url} is not responding and GetWired could not determine how to start it. `
+      + `Start your app first (e.g. "npm run dev") then re-run GetWired.`,
+    );
+  }
+
+  out(`> Starting: ${devCmd.cmd} ${devCmd.args.join(" ")} in ${devCmd.cwd}\n`);
+
+  const envPort = String(port);
+  callbacks.onLog(`Auto-starting dev server: ${devCmd.cmd} ${devCmd.args.join(" ")} (port ${envPort})`);
+
+  const child = spawn(devCmd.cmd, devCmd.args, {
+    cwd: devCmd.cwd,
+    stdio: "pipe",
+    detached: false,
+    env: { ...process.env, BROWSER: "none", PORT: envPort },
+  });
+
+  child.stdout?.on("data", (data: Buffer) => {
+    callbacks.onProviderOutput?.(`[dev-server] ${data.toString()}`);
+  });
+  child.stderr?.on("data", (data: Buffer) => {
+    callbacks.onProviderOutput?.(`[dev-server] ${data.toString()}`);
+  });
+
+  const ready = await waitForPort(port);
+  if (!ready) {
+    child.kill();
+    throw new Error(
+      `Dev server started but port ${envPort} did not become ready within 30 seconds. `
+      + `Start your app manually (e.g. "npm run dev") then re-run GetWired.`,
+    );
+  }
+
+  out(`> Dev server is ready at ${url}\n`);
+  callbacks.onLog(`Dev server auto-started on port ${envPort}`);
+  return { process: child, url, port };
+}
+
+/**
+ * Walk up from projectPath looking for a package.json with a dev or start script.
+ */
+function findDevCommand(
+  projectPath: string,
+): { cmd: string; args: string[]; port: number; cwd: string } | undefined {
+  let searchDir = projectPath;
+  for (let i = 0; i < 5; i++) {
+    const devCmd = getDevCommand(searchDir);
+    if (devCmd) return { ...devCmd, cwd: searchDir };
+    const parent = join(searchDir, "..");
+    if (parent === searchDir) break;
+    searchDir = parent;
+  }
+  return undefined;
+}
+
+/**
+ * Ask the AI provider to analyze the project structure and suggest how to start it.
+ */
+async function aiDetectStartCommand(
+  projectPath: string,
+  targetPort: number,
+  provider: TestingProvider,
+  context: TestContext,
+  out: (text: string) => void,
+): Promise<{ cmd: string; args: string[]; port: number; cwd: string } | undefined> {
+  // Gather project files for context
+  const projectFiles: string[] = [];
+  try {
+    const entries = await readdir(projectPath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+      projectFiles.push(entry.isDirectory() ? `${entry.name}/` : entry.name);
+    }
+  } catch { /* ignore */ }
+
+  let packageJson = "";
+  try {
+    packageJson = await readFile(join(projectPath, "package.json"), "utf-8");
+  } catch { /* ignore */ }
+
+  const prompt = `I need to start a dev server for this project. The server should listen on port ${targetPort}.
+
+Project directory: ${projectPath}
+Files: ${projectFiles.join(", ")}
+${packageJson ? `\npackage.json:\n${packageJson.slice(0, 2000)}` : "No package.json found."}
+
+What single shell command starts the dev server? Consider:
+- Common frameworks: Vite, Next.js, React, Angular, Vue, Nuxt, Remix, Astro, SvelteKit
+- Package managers: npm, yarn, pnpm, bun
+- The PORT environment variable will be set to ${targetPort}
+
+Respond with ONLY a JSON object (no markdown, no explanation):
+{"cmd": "npm", "args": ["run", "dev"], "cwd": "${projectPath}"}
+
+If you cannot determine the command, respond with: {"error": "reason"}`;
+
+  try {
+    let full = "";
+    for await (const chunk of provider.stream(context, [
+      { role: "system", content: "You are a build tool expert. Respond with only the requested JSON, nothing else." },
+      { role: "user", content: prompt },
+    ])) {
+      if (chunk.type === "text" && chunk.content) {
+        full += chunk.content;
+      }
+    }
+
+    // Extract JSON from response
+    const jsonMatch = full.match(/\{[^}]+\}/);
+    if (!jsonMatch) return undefined;
+
+    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+    if (parsed.error) {
+      out(`> AI could not determine start command: ${parsed.error}\n`);
+      return undefined;
+    }
+
+    if (typeof parsed.cmd === "string" && Array.isArray(parsed.args)) {
+      const cwd = typeof parsed.cwd === "string" ? parsed.cwd : projectPath;
+      out(`> AI detected start command: ${parsed.cmd} ${(parsed.args as string[]).join(" ")}\n`);
+      return {
+        cmd: parsed.cmd,
+        args: parsed.args as string[],
+        port: targetPort,
+        cwd,
+      };
+    }
+  } catch {
+    // AI detection failed — fall through
+  }
+  return undefined;
 }

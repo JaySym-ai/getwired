@@ -29,17 +29,17 @@ const STATUS_COLOR: Record<TestStep["status"], string> = {
   skipped: "yellow",
 };
 
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+
 export function TestProgress({ steps, currentStep }: TestProgressProps) {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    const timer = setInterval(() => setTick((t) => t + 1), 400);
+    const timer = setInterval(() => setTick((t) => t + 1), 120);
     return () => clearInterval(timer);
   }, []);
 
-  // Fixed-width dots so the text never changes width
-  const dotCount = (tick % 3) + 1;
-  const dots = ".".repeat(dotCount) + " ".repeat(3 - dotCount);
+  const spinnerFrame = SPINNER_FRAMES[tick % SPINNER_FRAMES.length];
 
   return (
     <Box flexDirection="column" paddingX={1}>
@@ -49,34 +49,37 @@ export function TestProgress({ steps, currentStep }: TestProgressProps) {
         </Text>
       </Box>
 
-      {steps.map((step, i) => (
-        <Box key={i} flexDirection="column" paddingLeft={1}>
-          <Box gap={1}>
-            <Text color={STATUS_COLOR[step.status]}>
-              {STATUS_ICON[step.status]}
-            </Text>
-            <Text
-              color={STATUS_COLOR[step.status]}
-              bold={step.status === "running"}
-            >
-              {step.name}
-              {step.status === "running" ? dots : ""}
-            </Text>
-            {step.duration !== undefined && (
-              <Text color="green" dimColor>
-                ({step.duration}ms)
+      {steps.map((step, i) => {
+        const isRunning = step.status === "running";
+
+        return (
+          <Box key={i} flexDirection="column" paddingLeft={1}>
+            <Box gap={1}>
+              <Text color={STATUS_COLOR[step.status]}>
+                {isRunning ? spinnerFrame : STATUS_ICON[step.status]}
               </Text>
+              <Text
+                color={STATUS_COLOR[step.status]}
+                bold={isRunning}
+              >
+                {step.name}
+              </Text>
+              {step.duration !== undefined && (
+                <Text color="green" dimColor>
+                  ({step.duration}ms)
+                </Text>
+              )}
+            </Box>
+            {step.details && (
+              <Box paddingLeft={2}>
+                <Text color="green" dimColor>
+                  {step.details}
+                </Text>
+              </Box>
             )}
           </Box>
-          {step.details && (
-            <Box paddingLeft={2}>
-              <Text color="green" dimColor>
-                {step.details}
-              </Text>
-            </Box>
-          )}
-        </Box>
-      ))}
+        );
+      })}
 
       <Box marginTop={1}>
         <Text color="green" bold>

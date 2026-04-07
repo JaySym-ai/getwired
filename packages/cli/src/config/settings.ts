@@ -161,6 +161,14 @@ export function getHybridScenarioCachePath(projectPath: string): string {
   return join(getConfigDir(projectPath), "hybrid-scenarios.json");
 }
 
+export function getWebScenarioCachePath(projectPath: string): string {
+  return join(getConfigDir(projectPath), "web-scenarios.json");
+}
+
+export function getDesktopScenarioCachePath(projectPath: string): string {
+  return join(getConfigDir(projectPath), "desktop-scenarios.json");
+}
+
 export async function initConfig(projectPath: string, projectName: string): Promise<GetwiredSettings> {
   const configDir = getConfigDir(projectPath);
   await mkdir(configDir, { recursive: true });

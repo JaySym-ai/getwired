@@ -6,6 +6,7 @@ interface ProviderStreamProps {
   providerName?: string;
   maxLines?: number;
   isStreaming?: boolean;
+  reportId?: string;
 }
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -22,6 +23,7 @@ export function ProviderStream({
   providerName,
   maxLines = 25,
   isStreaming = true,
+  reportId,
 }: ProviderStreamProps) {
   const [tick, setTick] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
@@ -46,6 +48,11 @@ export function ProviderStream({
   const cursorVisible = tick % 8 < 4;
   const spinnerFrame = SPINNER_FRAMES[tick % SPINNER_FRAMES.length];
   const silentFor = Date.now() - lastChangeTime.current;
+
+  // Extract report folder ID from output if not passed as prop
+  const extractedReportId = !reportId
+    ? output.match(/Report folder: (gw-[a-z0-9-]+)/)?.[1]
+    : undefined;
 
   // Split output into lines and take the current window
   const allLines = output.split("\n");
@@ -113,6 +120,11 @@ export function ProviderStream({
         {isStreaming && (
           <Text color="green">
             {spinnerFrame} LIVE
+          </Text>
+        )}
+        {(reportId || extractedReportId) && (
+          <Text color="gray">
+            [{reportId || extractedReportId}]
           </Text>
         )}
       </Box>
