@@ -1,9 +1,10 @@
-import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const PACKAGE_NAME = "getwired";
+const UPDATE_CHECK_TIMEOUT_MS = 5000;
 
 export function getLocalVersion(): string {
   const pkg = JSON.parse(
@@ -12,14 +13,19 @@ export function getLocalVersion(): string {
   return pkg.version;
 }
 
-function getLatestVersion(packageName: string): string | null {
+async function getLatestVersion(packageName: string): Promise<string | null> {
   try {
-    const result = execSync(`npm view ${packageName} version`, {
-      encoding: "utf-8",
-      timeout: 5000,
-      stdio: ["pipe", "pipe", "pipe"],
+    const response = await fetch(`https://registry.npmjs.org/${packageName}/latest`, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(UPDATE_CHECK_TIMEOUT_MS),
     });
-    return result.trim();
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const pkg = (await response.json()) as { version?: unknown };
+    return typeof pkg.version === "string" ? pkg.version : null;
   } catch {
     // Network error or package not published yet — skip silently
     return null;
@@ -35,47 +41,36 @@ function isNewer(latest: string, current: string): boolean {
   return lPat > cPat;
 }
 
-function installUpdate(packageName: string, latest: string): boolean {
-  try {
-    execSync(`npm install -g ${packageName}@${latest}`, {
-      encoding: "utf-8",
-      timeout: 60000,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    return true;
-  } catch {
-    return false;
-  }
+function shouldSkipUpdateCheck(): boolean {
+  return (
+    process.env.GETWIRED_DISABLE_UPDATE_CHECK === "1" ||
+    Boolean(process.env.CI) ||
+    !process.stdout.isTTY
+  );
 }
 
 /**
- * Check for a newer version on npm and auto-install it.
- * Runs synchronously so the CLI starts with the latest code.
- * Designed to fail silently — never blocks the user.
+ * Check for a newer version on npm and notify the user.
+ * Designed to fail silently and avoid blocking the event loop.
  */
-export function checkForUpdates(): void {
-  if (process.env.GETWIRED_DISABLE_UPDATE_CHECK === "1") {
+export async function notifyIfUpdateAvailable(): Promise<void> {
+  if (shouldSkipUpdateCheck()) {
     return;
   }
 
-  const packageName = "getwired";
   const current = getLocalVersion();
-  const latest = getLatestVersion(packageName);
+  const latest = await getLatestVersion(PACKAGE_NAME);
 
   if (!latest || !isNewer(latest, current)) {
     return;
   }
 
-  console.log(`\n⬆  Update available: ${current} → ${latest}`);
-  console.log(`   Installing ${packageName}@${latest}…`);
+  process.stderr.write(
+    `\n⬆  Update available: ${current} → ${latest}\n` +
+      `   Run: npm install -g ${PACKAGE_NAME}@${latest}\n\n`
+  );
+}
 
-  const ok = installUpdate(packageName, latest);
-
-  if (ok) {
-    console.log(`   ✓ Updated! Restart getwired to use v${latest}.\n`);
-  } else {
-    console.log(
-      `   ✗ Auto-update failed. Run manually:\n   npm install -g ${packageName}@${latest}\n`
-    );
-  }
+export async function checkForUpdates(): Promise<void> {
+  await notifyIfUpdateAvailable();
 }
