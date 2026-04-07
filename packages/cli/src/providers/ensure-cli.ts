@@ -184,8 +184,16 @@ export function ensureProviderCli(providerName: string): boolean {
 export function ensureAgentBrowser(): boolean {
   const clis = buildToolClis();
   const cli = clis["agent-browser"];
+  const browserInstallCommand = "agent-browser install";
 
   if (tryExec(`command -v ${cli.binary}`)) {
+    if (!runInstall(browserInstallCommand)) {
+      console.log(
+        `   ✗ ${cli.displayName} browser engine is not ready. Run \`${browserInstallCommand}\` manually and try again.\n`,
+      );
+      return false;
+    }
+
     return true;
   }
 
@@ -197,7 +205,13 @@ export function ensureAgentBrowser(): boolean {
     if (runInstall(method.command)) {
       // Run browser install after CLI is available
       console.log(`   Installing browser engine…`);
-      runInstall("agent-browser install");
+      if (!runInstall(browserInstallCommand)) {
+        console.log(
+          `   ✗ ${cli.displayName} CLI installed, but browser engine setup failed. Run \`${browserInstallCommand}\` manually and try again.\n`,
+        );
+        return false;
+      }
+
       console.log(`   ✓ ${cli.displayName} installed successfully.\n`);
       return true;
     }
