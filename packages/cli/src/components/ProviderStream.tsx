@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Box, Text } from "ink";
+import { Box, Text, useInput } from "ink";
 
 interface ProviderStreamProps {
   output: string;
@@ -24,7 +24,9 @@ export function ProviderStream({
   isStreaming = true,
 }: ProviderStreamProps) {
   const [tick, setTick] = useState(0);
+  const [scrollOffset, setScrollOffset] = useState(0);
   const lastOutputLen = useRef(output.length);
+  const lastLineCount = useRef(output.split("\n").length);
   const lastChangeTime = useRef(Date.now());
 
   // Single timer drives both cursor blink and spinner
@@ -45,9 +47,50 @@ export function ProviderStream({
   const spinnerFrame = SPINNER_FRAMES[tick % SPINNER_FRAMES.length];
   const silentFor = Date.now() - lastChangeTime.current;
 
-  // Split output into lines and take the last N
+  // Split output into lines and take the current window
   const allLines = output.split("\n");
-  const visible = allLines.slice(-maxLines);
+  const hasOverflow = allLines.length > maxLines;
+  const maxScrollOffset = Math.max(0, allLines.length - maxLines);
+
+  useEffect(() => {
+    const nextLineCount = allLines.length;
+    const lineDelta = nextLineCount - lastLineCount.current;
+    lastLineCount.current = nextLineCount;
+
+    setScrollOffset((prev) => {
+      const nextOffset = lineDelta > 0 && prev > 0 ? prev + lineDelta : prev;
+      return Math.min(maxScrollOffset, Math.max(0, nextOffset));
+    });
+  }, [allLines.length, maxScrollOffset]);
+
+  useInput((input, key) => {
+    if (key.upArrow || input === "k") {
+      setScrollOffset((prev) => Math.min(maxScrollOffset, prev + 1));
+      return;
+    }
+
+    if (key.downArrow || input === "j") {
+      setScrollOffset((prev) => Math.max(0, prev - 1));
+      return;
+    }
+
+    if (key.pageUp || input === "u") {
+      setScrollOffset((prev) => Math.min(maxScrollOffset, prev + maxLines));
+      return;
+    }
+
+    if (key.pageDown || input === "d") {
+      setScrollOffset((prev) => Math.max(0, prev - maxLines));
+      return;
+    }
+
+    if (key.end || input === "G") {
+      setScrollOffset(0);
+    }
+  }, { isActive: hasOverflow });
+
+  const start = Math.max(0, allLines.length - maxLines - scrollOffset);
+  const visible = allLines.slice(start, start + maxLines);
 
   return (
     <Box
@@ -128,9 +171,14 @@ export function ProviderStream({
         <Text color="green" dimColor>
           {allLines.length} lines
         </Text>
-        {allLines.length > maxLines && (
+        {hasOverflow && scrollOffset > 0 && (
           <Text color="green" dimColor>
-            (showing last {maxLines})
+            ↓ {scrollOffset} new lines · [↑↓] scroll · [G] latest
+          </Text>
+        )}
+        {hasOverflow && scrollOffset === 0 && (
+          <Text color="green" dimColor>
+            (showing last {maxLines}) · [↑↓] scroll
           </Text>
         )}
       </Box>
