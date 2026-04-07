@@ -1,5 +1,5 @@
 import { readFile, writeFile, readdir, mkdir } from "node:fs/promises";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join, relative } from "node:path";
 import { execSync, spawn, type ChildProcess } from "node:child_process";
@@ -79,8 +79,9 @@ import type {
   TestingProvider,
 } from "../providers/types.js";
 import type { GetwiredSettings } from "../config/settings.js";
-import { getPayloads, formatPayloadsForPrompt } from "../security/payloads.js";
-import type { SecurityPayload } from "../security/payloads.js";
+import { buildSecurityPayloadSection } from "./security-section.js";
+
+export { buildSecurityPayloadSection };
 
 export type TestPhase =
   | "initializing"
@@ -1906,27 +1907,6 @@ const PERSONA_PROFILES: Record<TestPersona, PersonaProfile> = {
     },
   },
 };
-
-export function buildSecurityPayloadSection(persona: TestPersona, settings: GetwiredSettings): string {
-  if (persona !== "hacky" || settings.security.injectPayloads === false) {
-    return "";
-  }
-
-  let payloads = getPayloads(settings.security.enabledCategories);
-  const customPayloadsPath = settings.security.customPayloadsPath?.trim();
-
-  if (customPayloadsPath && existsSync(customPayloadsPath)) {
-    const parsed = JSON.parse(readFileSync(customPayloadsPath, "utf-8")) as SecurityPayload[];
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      payloads = [...payloads, ...parsed];
-    }
-  }
-
-  return `── Security Payload Reference ──
-You MUST use these injection vectors when testing. For every form, input field, URL parameter, and header you discover, select payloads from the matching category below and inject them using "fill" actions. Do not just navigate to pages — actively submit payloads. Do not limit yourself to these — also try creative variations.
-
-${formatPayloadsForPrompt(payloads)}`;
-}
 
 function buildSystemPrompt(persona: TestPersona, memory: string | undefined, settings: GetwiredSettings): string {
   const securityPayloadSection = buildSecurityPayloadSection(persona, settings);

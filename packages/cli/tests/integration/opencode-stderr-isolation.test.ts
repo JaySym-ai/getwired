@@ -28,7 +28,7 @@ type FixtureMode = "default" | "large-stderr" | "stderr-error";
 
 function getTextChunks(chunks: StreamChunk[]): string[] {
   return chunks
-    .filter((chunk): chunk is Extract<StreamChunk, { type: "text" }> => chunk.type === "text")
+    .filter((chunk): chunk is StreamChunk & { type: "text" } => chunk.type === "text")
     .map((chunk) => chunk.content ?? "");
 }
 

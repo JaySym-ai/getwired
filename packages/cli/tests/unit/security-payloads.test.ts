@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import type { GetwiredSettings } from "../../src/config/settings.js";
-import { buildSecurityPayloadSection } from "../../src/orchestrator/index.js";
+import { buildSecurityPayloadSection } from "../../src/orchestrator/security-section.js";
 import {
   BUILT_IN_PAYLOADS,
   formatPayloadsForPrompt,

@@ -26,6 +26,8 @@
     "prepare": "npm run build",
     "lint": "tsc --noEmit && npm run lint:patterns",
     "lint:patterns": "node scripts/check-patterns.mjs",
+    "test:unit": "tsx --test tests/unit/*.test.ts",
+    "test:integration": "tsx --test tests/integration/*.test.ts",
     "test": "tsx --test tests/integration/*.test.ts tests/unit/*.test.ts",
     "regression:smoke": "npm run build && node ./scripts/regression-smoke.mjs"
   },
