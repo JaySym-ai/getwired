@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import type { Readable } from "node:stream";
 import {
   TestingProvider,
   ProviderConfig,
@@ -8,6 +7,7 @@ import {
   TestContext,
   TestFinding,
 } from "./types.js";
+import { createStdoutChunkQueue, drainStderr } from "./stream-utils.js";
 
 export class ClaudeCodeProvider extends TestingProvider {
   readonly config: ProviderConfig = {
@@ -33,8 +33,10 @@ export class ClaudeCodeProvider extends TestingProvider {
       proc.on("error", () => resolve(null));
     });
 
+    const stderr = drainStderr(proc.stderr!);
+
     // Event-driven reading for real-time streaming
-    const chunks = createChunkQueue(proc.stdout!, proc.stderr!);
+    const chunks = createStdoutChunkQueue(proc.stdout!);
     let buffer = "";
 
     for await (const raw of chunks) {
@@ -61,7 +63,7 @@ export class ClaudeCodeProvider extends TestingProvider {
             yield { type: "text", content: data.delta.text };
           }
         } catch {
-          // Non-JSON line — emit as raw text (stderr output, progress, etc.)
+          // Non-JSON line — emit as raw text
           if (line.trim()) {
             yield { type: "text", content: line + "\n" };
           }
@@ -72,7 +74,9 @@ export class ClaudeCodeProvider extends TestingProvider {
     const exitCode = await exitPromise;
 
     if (exitCode !== null && exitCode !== 0) {
-      yield { type: "text", content: `\n[claude exited with code ${exitCode}]\n` };
+      const stderrBuf = stderr.getBuffer().trim();
+      const detail = stderrBuf ? `\n${stderrBuf}` : "";
+      yield { type: "text", content: `\n[claude exited with code ${exitCode}]${detail}\n` };
     }
 
     yield { type: "done" };
@@ -134,33 +138,5 @@ Return a JSON array of findings. Return [] if no regressions detected.`;
       });
       proc.on("error", (err) => reject(err));
     });
-  }
-}
-
-async function* createChunkQueue(stdout: Readable, stderr: Readable): AsyncGenerator<string> {
-  const queue: string[] = [];
-  let finished = 0;
-  let waiting: (() => void) | null = null;
-
-  function onData(chunk: Buffer) {
-    queue.push(chunk.toString());
-    if (waiting) { const w = waiting; waiting = null; w(); }
-  }
-  function onEnd() {
-    finished++;
-    if (waiting) { const w = waiting; waiting = null; w(); }
-  }
-
-  stdout.on("data", onData);
-  stderr.on("data", onData);
-  stdout.on("end", onEnd);
-  stderr.on("end", onEnd);
-  stdout.on("error", onEnd);
-  stderr.on("error", onEnd);
-
-  while (true) {
-    if (queue.length > 0) yield queue.shift()!;
-    else if (finished >= 2) break;
-    else await new Promise<void>((r) => { waiting = r; });
   }
 }
