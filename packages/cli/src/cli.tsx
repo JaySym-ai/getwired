@@ -39,8 +39,9 @@ program
   .command("report")
   .description("View test reports (non-interactive)")
   .option("-i, --id <id>", "View a specific report by ID")
+  .option("--latest", "View the most recent report")
   .action((options) => {
-    render(<ReportView reportId={options.id} />);
+    render(<ReportView reportId={options.latest ? "latest" : options.id} />);
   });
 
 // MCP server mode (no TUI, communicates over stdio JSON-RPC)
