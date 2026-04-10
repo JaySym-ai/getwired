@@ -7,7 +7,7 @@ import {
   TestContext,
   TestFinding,
 } from "./types.js";
-import { createStdoutChunkQueue, drainStderr } from "./stream-utils.js";
+import { createStdoutChunkQueue, drainStderr, withStreamGuards } from "./stream-utils.js";
 
 export class ClaudeCodeProvider extends TestingProvider {
   readonly config: ProviderConfig = {

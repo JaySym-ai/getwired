@@ -54,6 +54,37 @@ function renderPathReference(label: string, path?: string): string {
   return `<li><span class="path-label">${escapeHtml(label)}:</span> <a href="${escapeHtml(toFileHref(path))}">${escapeHtml(path)}</a></li>`;
 }
 
+function generateWhyItMatters(finding: TestFinding): string {
+  const severityImpact: Record<string, string> = {
+    critical: "This is a critical issue that will severely impact users and should be fixed immediately. It likely causes data loss, security vulnerabilities, or complete feature breakage.",
+    high: "This is a high-priority issue that significantly degrades the user experience. Users will likely notice this and it could lead to frustration or abandonment.",
+    medium: "This issue affects usability but won't completely block users. However, fixing it will noticeably improve the overall experience.",
+    low: "This is a minor issue that could improve polish and attention to detail. While not urgent, addressing it shows care for quality.",
+    info: "This is an informational observation that may be worth reviewing for potential improvements.",
+  };
+
+  const categoryContext: Record<string, string> = {
+    "ui-regression": "A visual change was detected that may be unintentional. If this is a regression, users who are familiar with the previous design will be confused by the change.",
+    functional: "A feature is not working as expected. This directly impacts what users can accomplish with your application.",
+    accessibility: "An accessibility issue was found. This means some users, particularly those using assistive technologies, may not be able to use this feature.",
+    performance: "A performance issue was detected. Slow experiences lead to user frustration and higher bounce rates.",
+    seo: "An SEO issue was found. This could affect your application's visibility in search engines.",
+    "console-error": "JavaScript errors were detected in the browser console. These errors may indicate underlying bugs that could manifest as user-facing issues.",
+  };
+
+  return `${severityImpact[finding.severity] ?? severityImpact.medium} ${categoryContext[finding.category] ?? ""}`;
+}
+
+function generateFixPrompt(finding: TestFinding): string {
+  const stepsContext = finding.steps?.length
+    ? `\n\nSteps to reproduce:\n${finding.steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}`
+    : "";
+  const urlContext = finding.url ? ` on page ${finding.url}` : "";
+  const deviceContext = finding.device ? ` (${finding.device} view)` : "";
+
+  return `Fix the following ${finding.severity} ${finding.category} issue${urlContext}${deviceContext}: "${finding.title}" — ${finding.description}${stepsContext}`;
+}
+
 function renderFinding(finding: TestFinding): string {
   const details = [
     renderPathReference("Screenshot", finding.screenshotPath),
@@ -70,6 +101,9 @@ function renderFinding(finding: TestFinding): string {
     finding.url ? `<a class="pill link-pill" href="${escapeHtml(finding.url)}">${escapeHtml(finding.url)}</a>` : "",
   ].filter(Boolean).join("");
 
+  const whyItMatters = generateWhyItMatters(finding);
+  const fixPrompt = generateFixPrompt(finding);
+
   return `
     <article class="panel finding-card">
       <div class="finding-header">
@@ -77,8 +111,20 @@ function renderFinding(finding: TestFinding): string {
         <h3>${escapeHtml(finding.title)}</h3>
       </div>
       <div class="pill-row">${meta}</div>
-      <p class="finding-description">${escapeHtml(finding.description)}</p>
-      ${steps}
+      <div class="finding-section">
+        <h4>What happened</h4>
+        <p class="finding-description">${escapeHtml(finding.description)}</p>
+      </div>
+      <div class="finding-section">
+        <h4>Why this matters</h4>
+        <p class="finding-why">${escapeHtml(whyItMatters)}</p>
+      </div>
+      ${steps ? `<div class="finding-section"><h4>Steps to reproduce</h4>${steps}</div>` : ""}
+      <div class="finding-section fix-prompt-section">
+        <h4>Suggested prompt to fix</h4>
+        <pre class="fix-prompt" onclick="navigator.clipboard.writeText(this.textContent).then(() => { this.classList.add('copied'); setTimeout(() => this.classList.remove('copied'), 1500); })" title="Click to copy">${escapeHtml(fixPrompt)}</pre>
+        <span class="copy-hint">Click to copy prompt</span>
+      </div>
       ${details ? `<ul class="path-list">${details}</ul>` : ""}
     </article>`;
 }
@@ -185,6 +231,14 @@ export function renderHtmlReport(report: TestReport): string {
       .pill, .step-badge { background: rgba(18, 31, 22, 0.9); border-color: rgba(124, 255, 138, 0.2); color: var(--muted); text-decoration: none; }
       .link-pill { text-transform: none; letter-spacing: normal; }
       .finding-description { margin: 0 0 12px; }
+      .finding-section { margin-bottom: 14px; }
+      .finding-section h4 { margin: 0 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+      .finding-why { margin: 0; color: var(--muted); line-height: 1.6; }
+      .fix-prompt-section { position: relative; }
+      .fix-prompt { margin: 0; padding: 12px 16px; background: rgba(6, 12, 8, 0.8); border: 1px solid rgba(124, 255, 138, 0.2); border-radius: 10px; white-space: pre-wrap; word-break: break-word; font-size: 13px; color: var(--accent); cursor: pointer; transition: border-color 0.2s; }
+      .fix-prompt:hover { border-color: var(--accent); }
+      .fix-prompt.copied { border-color: var(--accent); box-shadow: 0 0 8px rgba(124, 255, 138, 0.3); }
+      .copy-hint { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); opacity: 0.7; }
       .finding-steps, .notes-list, .path-list { margin: 0; padding-left: 20px; }
       .path-list { margin-top: 12px; }
       .path-label { color: var(--muted); }
