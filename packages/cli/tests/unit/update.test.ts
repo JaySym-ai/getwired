@@ -143,13 +143,13 @@ describe("update module", () => {
   });
 
   it("only writes a manual upgrade notice when a newer version is available", async () => {
-    const result = await runUpdateCheck({ latestVersion: "0.0.19" });
+    const result = await runUpdateCheck({ latestVersion: "99.0.0" });
     const source = readFileSync(UPDATE_SOURCE_URL, "utf8");
 
     assert.equal(result.fetchCalls.length, 1);
     assert.match(result.fetchCalls[0], /registry\.npmjs\.org\/getwired\/latest/);
-    assert.match(result.stderr, /Update available: 0\.0\.18 → 0\.0\.19/);
-    assert.match(result.stderr, /Run: npm install -g getwired@0\.0\.19/);
+    assert.match(result.stderr, /Update available: .+ → 99\.0\.0/);
+    assert.match(result.stderr, /Run: npm install -g getwired@99\.0\.0/);
     assert.doesNotMatch(source, /\bexecSync\b/);
   });
 });

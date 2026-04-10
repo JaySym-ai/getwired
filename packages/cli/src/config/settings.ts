@@ -86,6 +86,7 @@ export interface GetwiredSettings {
     customPayloadsPath?: string;
     injectPayloads: boolean;
   };
+  telemetry: boolean;
 }
 
 const DEFAULT_AUTH: AuthConfig = {
@@ -131,6 +132,7 @@ const DEFAULT_SETTINGS: GetwiredSettings = {
     enabledCategories: ["xss", "sqli", "path-traversal", "template-injection", "header-injection"],
     injectPayloads: true,
   },
+  telemetry: true,
 };
 
 function getConfigDir(projectPath: string): string {
@@ -253,6 +255,7 @@ export async function loadConfig(projectPath: string): Promise<GetwiredSettings>
       ...DEFAULT_SETTINGS.security,
       ...(saved.security ?? {}),
     },
+    telemetry: typeof saved.telemetry === "boolean" ? saved.telemetry : DEFAULT_SETTINGS.telemetry,
   };
 }
 

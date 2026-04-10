@@ -4,6 +4,8 @@ import { createHash } from "node:crypto";
 import { join, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { execSync, spawn, type ChildProcess } from "node:child_process";
+import { captureTestStarted, captureTestCompleted, captureTestErrored, shutdownTelemetry, setProjectTelemetry } from "../telemetry.js";
+import { getLocalVersion } from "../update.js";
 import { createConnection } from "node:net";
 import { getBrowserSession } from "../browser/session.js";
 import { ensureAgentBrowser } from "../providers/ensure-cli.js";
@@ -302,6 +304,7 @@ export async function runTestSession(
 ): Promise<TestReport> {
   const startTime = Date.now();
   const settings = await loadConfig(projectPath);
+  setProjectTelemetry(settings.telemetry);
   const provider = getProvider(options.provider ?? settings.provider);
 
   // Ensure agent-browser CLI is installed before any browser operations
@@ -313,6 +316,16 @@ export async function runTestSession(
   // Note: browserSession.label is used for display only — agent-browser handles its own daemon
   const persona = options.persona ?? "standard";
   const personaProfile = getPersonaProfile(persona);
+  const cliVersion = getLocalVersion();
+
+  captureTestStarted({
+    provider: options.provider ?? settings.provider,
+    persona,
+    platform: "web",
+    deviceProfile: options.device,
+    cliVersion,
+  });
+
   const findings: TestFinding[] = [];
   const execution: TestExecutionSummary = {
     browserSessions: 0,
@@ -720,8 +733,31 @@ export async function runTestSession(
     out(`> Debug log saved: ${runId}/debug.log\n`);
 
     callbacks.onPhaseChange("done", "Testing complete!");
+
+    captureTestCompleted({
+      provider: options.provider ?? settings.provider,
+      persona,
+      platform: "web",
+      durationMs: report.summary.duration,
+      findingsCount: findings.length,
+      passed: report.summary.passed,
+      failed: report.summary.failed,
+      warnings: report.summary.warnings,
+      cliVersion,
+    });
+    await shutdownTelemetry();
+
     return report;
   } catch (err) {
+    captureTestErrored({
+      provider: options.provider ?? settings.provider,
+      persona,
+      platform: "web",
+      error: String(err),
+      cliVersion,
+    });
+    await shutdownTelemetry();
+
     await saveDebugLog(String(err));
     out(`\n! Error: ${String(err)}\n`);
     out(`> Debug log saved: ${runId}/debug.log\n`);
@@ -749,9 +785,19 @@ export async function runDesktopTestSession(
 ): Promise<TestReport> {
   const startTime = Date.now();
   const settings = await loadConfig(projectPath);
+  setProjectTelemetry(settings.telemetry);
   const provider = getProvider(options.provider ?? settings.provider);
   const persona = options.persona ?? "standard";
   const personaProfile = getPersonaProfile(persona);
+  const cliVersion = getLocalVersion();
+
+  captureTestStarted({
+    provider: options.provider ?? settings.provider,
+    persona,
+    platform: "desktop",
+    cliVersion,
+  });
+
   const findings: TestFinding[] = [];
   const execution: TestExecutionSummary = {
     browserSessions: 0,
@@ -1049,8 +1095,31 @@ export async function runDesktopTestSession(
     await updateStep(steps, 5, "passed", callbacks);
 
     callbacks.onPhaseChange("done", "Testing complete!");
+
+    captureTestCompleted({
+      provider: options.provider ?? settings.provider,
+      persona,
+      platform: "desktop",
+      durationMs: report.summary.duration,
+      findingsCount: findings.length,
+      passed: report.summary.passed,
+      failed: report.summary.failed,
+      warnings: report.summary.warnings,
+      cliVersion,
+    });
+    await shutdownTelemetry();
+
     return report;
   } catch (err) {
+    captureTestErrored({
+      provider: options.provider ?? settings.provider,
+      persona,
+      platform: "desktop",
+      error: String(err),
+      cliVersion,
+    });
+    await shutdownTelemetry();
+
     await saveDebugLog(String(err));
     out(`\n! Error: ${String(err)}\n`);
     out(`> Debug log saved: ${runId}/debug.log\n`);
@@ -1081,9 +1150,19 @@ export async function runNativeTestSession(
 ): Promise<TestReport> {
   const startTime = Date.now();
   const settings = await loadConfig(projectPath);
+  setProjectTelemetry(settings.telemetry);
   const provider = getProvider(options.provider ?? settings.provider);
   const persona = options.persona ?? "standard";
   const personaProfile = getPersonaProfile(persona);
+  const cliVersion = getLocalVersion();
+
+  captureTestStarted({
+    provider: options.provider ?? settings.provider,
+    persona,
+    platform: "native",
+    cliVersion,
+  });
+
   const findings: TestFinding[] = [];
   const execution: TestExecutionSummary = {
     browserSessions: 0,
@@ -1675,8 +1754,31 @@ export async function runNativeTestSession(
     await updateStep(steps, 7, "passed", callbacks);
     await saveDebugLog();
     callbacks.onPhaseChange("done", "Testing complete!");
+
+    captureTestCompleted({
+      provider: options.provider ?? settings.provider,
+      persona,
+      platform: "native",
+      durationMs: report.summary.duration,
+      findingsCount: findings.length,
+      passed: report.summary.passed,
+      failed: report.summary.failed,
+      warnings: report.summary.warnings,
+      cliVersion,
+    });
+    await shutdownTelemetry();
+
     return report;
   } catch (err) {
+    captureTestErrored({
+      provider: options.provider ?? settings.provider,
+      persona,
+      platform: "native",
+      error: String(err),
+      cliVersion,
+    });
+    await shutdownTelemetry();
+
     await saveDebugLog(String(err));
     out(`\n! Error: ${String(err)}\n`);
     callbacks.onPhaseChange("error", `Error: ${err}`);

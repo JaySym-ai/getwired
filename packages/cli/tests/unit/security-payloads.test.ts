@@ -52,6 +52,7 @@ function createDefaultSettings(): GetwiredSettings {
       enabledCategories: ["xss", "sqli", "path-traversal", "template-injection", "header-injection"],
       injectPayloads: true,
     },
+    telemetry: true,
   };
 }
 

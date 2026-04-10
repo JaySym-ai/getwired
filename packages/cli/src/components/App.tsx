@@ -660,6 +660,9 @@ export function App({ mode, initProvider }: AppProps) {
       const idx = formats.indexOf(settings.reporting.outputFormat);
       return idx >= 0 ? idx : 0;
     }
+    if (section === "telemetry") {
+      return settings.telemetry ? 0 : 1;
+    }
     return 0;
   }
 
@@ -671,6 +674,7 @@ export function App({ mode, initProvider }: AppProps) {
       if (section === "device") return 2;
       if (section === "screenshot") return 9;
       if (section === "reporting") return 2;
+      if (section === "telemetry") return 1;
       return 0;
     };
 
@@ -702,6 +706,8 @@ export function App({ mode, initProvider }: AppProps) {
       } else if (section === "reporting") {
         const formats = ["json", "html", "markdown"] as const;
         updated = { ...updated, reporting: { ...updated.reporting, outputFormat: formats[settingEditIndex] } };
+      } else if (section === "telemetry") {
+        updated = { ...updated, telemetry: settingEditIndex === 0 };
       }
       setSettings(updated);
       try {
@@ -1624,6 +1630,23 @@ export function App({ mode, initProvider }: AppProps) {
                 ))}
               </Box>
             )}
+            {settingEditing === "telemetry" && (
+              <Box flexDirection="column" paddingLeft={2}>
+                <Text color="greenBright" bold>Telemetry:</Text>
+                <Text color="green" dimColor>Anonymous usage analytics to help improve GetWired.</Text>
+                <Text color="green" dimColor>No private data, URLs, code, or file paths are ever sent.</Text>
+                {["Enabled", "Disabled"].map((label, i) => (
+                  <Box key={label} gap={1}>
+                    <Text color={i === settingEditIndex ? "greenBright" : "green"}>
+                      {i === settingEditIndex ? " ▸ " : "   "}
+                    </Text>
+                    <Text color={i === settingEditIndex ? "greenBright" : "green"} bold={i === settingEditIndex}>
+                      {label}
+                    </Text>
+                  </Box>
+                ))}
+              </Box>
+            )}
             <Text color="greenBright" bold>└──────────────────────────────────────────────────</Text>
           </Box>
           <Box paddingX={2} gap={2}>
@@ -1684,6 +1707,7 @@ const SETTINGS_SECTIONS = [
   { key: "device", label: "Device Profile", description: "Test desktop, mobile, or both" },
   { key: "screenshot", label: "Screenshot Settings", description: "Capture & comparison options" },
   { key: "reporting", label: "Report Output", description: "Report format and behavior" },
+  { key: "telemetry", label: "Telemetry", description: "Anonymous usage analytics to improve GetWired" },
 ];
 
 const TEST_PERSONAS: Array<{ id: TestPersona; label: string; description: string }> = [
@@ -1705,6 +1729,7 @@ function getSettingValue(settings: GetwiredSettings, key: string): string {
     case "device": return settings.testing.deviceProfile;
     case "screenshot": return `fullPage:${settings.testing.screenshotFullPage} delay:${settings.testing.screenshotDelay}ms threshold:${(settings.testing.diffThreshold * 100).toFixed(0)}% browser:${settings.testing.showBrowser ? "visible" : "headless"}`;
     case "reporting": return settings.reporting.outputFormat;
+    case "telemetry": return settings.telemetry ? "enabled" : "disabled";
     default: return "";
   }
 }
