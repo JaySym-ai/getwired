@@ -1,5 +1,9 @@
 import { useState, useEffect } from "react";
 import { Box, Text, useApp } from "ink";
+import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+import { exec } from "node:child_process";
 import { Header } from "./Header.js";
 import { StatusBar } from "./StatusBar.js";
 import { TestProgress } from "./TestProgress.js";
@@ -165,6 +169,24 @@ export function RunCommand({ options }: RunCommandProps) {
               <Text color="green" dimColor>
                 {report.summary.duration}ms · .getwired/reports/{report.id}/{report.id}.json
               </Text>
+              {(() => {
+                const htmlPath = join(process.cwd(), ".getwired", "reports", report.id, "report.html");
+                const htmlExists = existsSync(htmlPath);
+                if (htmlExists) {
+                  const fileUrl = pathToFileURL(htmlPath).href;
+                  return (
+                    <Box flexDirection="column">
+                      <Text color="greenBright" bold>
+                        📄 Report: <Text color="cyan">{fileUrl}</Text>
+                      </Text>
+                      <Text color="green" dimColor>
+                        ↑ Click the link above to open in your browser
+                      </Text>
+                    </Box>
+                  );
+                }
+                return null;
+              })()}
               {report.execution?.screenshots ? (
                 <Text color="green" dimColor>
                   Screenshots: .getwired/reports/{report.id}/screenshots/

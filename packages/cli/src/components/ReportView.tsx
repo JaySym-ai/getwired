@@ -280,11 +280,15 @@ export function ReportView({ reportId }: ReportViewProps) {
               <Box marginTop={1} flexDirection="column">
                 <Text color="greenBright" bold>── Findings ──────────────────────────</Text>
                 {report.findings.map((f, i) => (
-                  <Box key={i} paddingLeft={1} flexDirection="column">
+                  <Box key={i} paddingLeft={1} flexDirection="column" marginBottom={1}>
                     <Text color={f.severity === "critical" || f.severity === "high" ? "redBright" : "yellow"}>
                       {f.severity === "critical" || f.severity === "high" ? "✘" : "⚠"} [{f.severity}] {f.title}
                     </Text>
-                    <Text color="green" dimColor>  {f.description.slice(0, 120)}</Text>
+                    <Text color="green" dimColor wrap="wrap">  What: {f.description}</Text>
+                    {f.url && <Text color="cyan" dimColor>  URL: {f.url}</Text>}
+                    {f.steps && f.steps.length > 0 && (
+                      <Text color="green" dimColor>  Steps: {f.steps.slice(0, 3).join(" → ")}{f.steps.length > 3 ? " …" : ""}</Text>
+                    )}
                   </Box>
                 ))}
               </Box>

@@ -2,6 +2,7 @@ import { readFile, writeFile, readdir, mkdir } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join, relative } from "node:path";
+import { pathToFileURL } from "node:url";
 import { execSync, spawn, type ChildProcess } from "node:child_process";
 import { createConnection } from "node:net";
 import { getBrowserSession } from "../browser/session.js";
@@ -83,6 +84,7 @@ import type {
 } from "../providers/types.js";
 import type { GetwiredSettings } from "../config/settings.js";
 import { buildSecurityPayloadSection } from "./security-section.js";
+import { withStreamGuards } from "../providers/stream-utils.js";
 
 export { buildSecurityPayloadSection };
 
@@ -399,7 +401,7 @@ export async function runTestSession(
     messages: { role: "user" | "assistant" | "system"; content: string }[],
   ): Promise<string> {
     let full = "";
-    for await (const chunk of provider.stream(ctx, messages)) {
+    for await (const chunk of withStreamGuards(provider.stream(ctx, messages))) {
       if (chunk.type === "text" && chunk.content) {
         out(chunk.content);
         full += chunk.content;
@@ -408,6 +410,9 @@ export async function runTestSession(
         // Show a persona-flavored activity message instead of a scary error.
         const activity = toolCallActivity(chunk.toolCall.name, persona);
         out(`> ${activity}\n`);
+      } else if (chunk.type === "error" && chunk.error) {
+        out(`\n! ${chunk.error}\n`);
+        throw new Error(chunk.error);
       }
     }
     out("\n");
@@ -687,6 +692,10 @@ export async function runTestSession(
 
     await saveReport(context.reportDir, report, settings.reporting.outputFormat);
     out(`\n> Report saved: ${report.id}.json\n`);
+    const htmlReportPath1 = join(context.reportDir, "report.html");
+    if (existsSync(htmlReportPath1)) {
+      out(`> 📄 Open report: ${pathToFileURL(htmlReportPath1).href}\n`);
+    }
     out(`> Browser evidence: ${execution.navigations} navigation${execution.navigations === 1 ? "" : "s"}, ${execution.screenshots} screenshot${execution.screenshots === 1 ? "" : "s"}\n`);
 
     // ── Update memory ────────────────────────────────
@@ -824,13 +833,16 @@ export async function runDesktopTestSession(
     messages: { role: "user" | "assistant" | "system"; content: string }[],
   ): Promise<string> {
     let full = "";
-    for await (const chunk of provider.stream(ctx, messages)) {
+    for await (const chunk of withStreamGuards(provider.stream(ctx, messages))) {
       if (chunk.type === "text" && chunk.content) {
         out(chunk.content);
         full += chunk.content;
       } else if (chunk.type === "tool_call" && chunk.toolCall) {
         const activity = toolCallActivity(chunk.toolCall.name, persona);
         out(`> ${activity}\n`);
+      } else if (chunk.type === "error" && chunk.error) {
+        out(`\n! ${chunk.error}\n`);
+        throw new Error(chunk.error);
       }
     }
     out("\n");
@@ -1028,6 +1040,10 @@ export async function runDesktopTestSession(
 
     await saveReport(context.reportDir, report, settings.reporting.outputFormat, "report.json");
     out(`> Report saved: ${toProjectRelativePath(projectPath, join(context.reportDir, "report.json"))}\n`);
+    const htmlReportPath2 = join(context.reportDir, "report.html");
+    if (existsSync(htmlReportPath2)) {
+      out(`> 📄 Open report: ${pathToFileURL(htmlReportPath2).href}\n`);
+    }
 
     await saveDebugLog();
     await updateStep(steps, 5, "passed", callbacks);
@@ -1149,13 +1165,16 @@ export async function runNativeTestSession(
     messages: { role: "user" | "assistant" | "system"; content: string }[],
   ): Promise<string> {
     let full = "";
-    for await (const chunk of provider.stream(ctx, messages)) {
+    for await (const chunk of withStreamGuards(provider.stream(ctx, messages))) {
       if (chunk.type === "text" && chunk.content) {
         out(chunk.content);
         full += chunk.content;
       } else if (chunk.type === "tool_call" && chunk.toolCall) {
         const activity = toolCallActivity(chunk.toolCall.name, persona);
         out(`> ${activity}\n`);
+      } else if (chunk.type === "error" && chunk.error) {
+        out(`\n! ${chunk.error}\n`);
+        throw new Error(chunk.error);
       }
     }
     out("\n");
@@ -1631,6 +1650,10 @@ export async function runNativeTestSession(
 
     await saveReport(context.reportDir, report, settings.reporting.outputFormat);
     out(`\n> Report saved: ${report.id}.json\n`);
+    const htmlReportPath3 = join(context.reportDir, "report.html");
+    if (existsSync(htmlReportPath3)) {
+      out(`> 📄 Open report: ${pathToFileURL(htmlReportPath3).href}\n`);
+    }
 
     // Update memory
     out(`> Updating app memory...\n`);
@@ -2714,7 +2737,11 @@ async function streamAndExecuteScenarios(
   // Track persona for activity messages
   const toolActivity = (name: string) => toolCallActivity(name, persona);
 
-  for await (const chunk of provider.stream(context, messages)) {
+  for await (const chunk of withStreamGuards(provider.stream(context, messages))) {
+    if (chunk.type === "error" && chunk.error) {
+      out(`\n! ${chunk.error}\n`);
+      break;
+    }
     if (chunk.type === "text" && chunk.content) {
       out(chunk.content);
       full += chunk.content;
@@ -4917,12 +4944,14 @@ If you cannot determine the command, respond with: {"error": "reason"}`;
 
   try {
     let full = "";
-    for await (const chunk of provider.stream(context, [
+    for await (const chunk of withStreamGuards(provider.stream(context, [
       { role: "system", content: "You are a build tool expert. Respond with only the requested JSON, nothing else." },
       { role: "user", content: prompt },
-    ])) {
+    ]))) {
       if (chunk.type === "text" && chunk.content) {
         full += chunk.content;
+      } else if (chunk.type === "error") {
+        break;
       }
     }
 

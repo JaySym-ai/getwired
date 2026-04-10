@@ -10,6 +10,15 @@ interface ProviderStreamProps {
 }
 
 const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const ACTIVITY_MESSAGES = [
+  "Thinking…",
+  "Analyzing project…",
+  "Processing…",
+  "Generating scenarios…",
+  "Evaluating…",
+  "Working on it…",
+  "Almost there…",
+];
 
 function formatElapsed(ms: number): string {
   const secs = Math.floor(ms / 1000);
@@ -30,6 +39,8 @@ export function ProviderStream({
   const lastOutputLen = useRef(output.length);
   const lastLineCount = useRef(output.split("\n").length);
   const lastChangeTime = useRef(Date.now());
+  const startTime = useRef(Date.now());
+  const chunkCount = useRef(0);
 
   // Single timer drives both cursor blink and spinner
   useEffect(() => {
@@ -37,17 +48,20 @@ export function ProviderStream({
     return () => clearInterval(timer);
   }, []);
 
-  // Track when output last changed
+  // Track when output last changed and count chunks
   useEffect(() => {
     if (output.length !== lastOutputLen.current) {
       lastOutputLen.current = output.length;
       lastChangeTime.current = Date.now();
+      chunkCount.current++;
     }
   }, [output]);
 
   const cursorVisible = tick % 8 < 4;
   const spinnerFrame = SPINNER_FRAMES[tick % SPINNER_FRAMES.length];
   const silentFor = Date.now() - lastChangeTime.current;
+  const totalElapsed = Date.now() - startTime.current;
+  const activityMsg = ACTIVITY_MESSAGES[Math.floor(tick / 40) % ACTIVITY_MESSAGES.length];
 
   // Extract report folder ID from output if not passed as prop
   const extractedReportId = !reportId
@@ -122,6 +136,11 @@ export function ProviderStream({
             {spinnerFrame} LIVE
           </Text>
         )}
+        {isStreaming && (
+          <Text color="green" dimColor>
+            {formatElapsed(totalElapsed)}
+          </Text>
+        )}
         {(reportId || extractedReportId) && (
           <Text color="gray">
             [{reportId || extractedReportId}]
@@ -131,9 +150,19 @@ export function ProviderStream({
 
       {/* Output lines */}
       <Box flexDirection="column" flexGrow={1}>
-        {visible.length === 0 && (
+        {visible.length === 0 && isStreaming && (
+          <Box flexDirection="column" gap={0}>
+            <Text color="green">
+              {spinnerFrame} Connecting to {providerName ?? "provider"}...
+            </Text>
+            <Text color="green" dimColor>
+              {activityMsg}
+            </Text>
+          </Box>
+        )}
+        {visible.length === 0 && !isStreaming && (
           <Text color="green" dimColor>
-            Waiting for provider response...
+            No output received.
           </Text>
         )}
         {visible.map((line, i) => {
@@ -167,8 +196,10 @@ export function ProviderStream({
         <Box marginTop={1}>
           <Text color="green" dimColor>
             {isStreaming && silentFor > 3000
-              ? `${spinnerFrame} working... ${formatElapsed(silentFor).padEnd(6)}`
-              : " "}
+              ? `${spinnerFrame} ${activityMsg} (${formatElapsed(silentFor)} since last output)`
+              : isStreaming && visible.length > 0
+                ? `${spinnerFrame} Receiving data...`
+                : " "}
           </Text>
         </Box>
       </Box>
@@ -181,7 +212,7 @@ export function ProviderStream({
       </Box>
       <Box gap={1}>
         <Text color="green" dimColor>
-          {allLines.length} lines
+          {allLines.length} lines · {chunkCount.current} chunks
         </Text>
         {hasOverflow && scrollOffset > 0 && (
           <Text color="green" dimColor>

@@ -13,6 +13,7 @@ import { ProviderStream } from "./ProviderStream.js";
 import { readFile, readdir, rm, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { GetwiredSettings } from "../config/settings.js";
 import type { DeviceProfile, TestFinding, TestPersona, TestReport, NativePlatform } from "../providers/types.js";
 import type { DesktopPlatform } from "../desktop/types.js";
@@ -1019,6 +1020,24 @@ export function App({ mode, initProvider }: AppProps) {
                   <Text color="green" dimColor>
                     {testReport.summary.duration}ms · .getwired/reports/{testReport.id}/{testReport.id}.json
                   </Text>
+                  {(() => {
+                    const htmlPath = join(process.cwd(), ".getwired", "reports", testReport.id, "report.html");
+                    const htmlExists = existsSync(htmlPath);
+                    if (htmlExists) {
+                      const fileUrl = pathToFileURL(htmlPath).href;
+                      return (
+                        <Box flexDirection="column">
+                          <Text color="greenBright" bold>
+                            📄 Report: <Text color="cyan">{fileUrl}</Text>
+                          </Text>
+                          <Text color="green" dimColor>
+                            ↑ Click the link above to open in your browser
+                          </Text>
+                        </Box>
+                      );
+                    }
+                    return null;
+                  })()}
                   {testReport.execution?.screenshots ? (
                     <Text color="green" dimColor>
                       Screenshots: .getwired/reports/{testReport.id}/screenshots/
@@ -1333,6 +1352,24 @@ export function App({ mode, initProvider }: AppProps) {
                   <Text color="green" dimColor>
                     {testReport.summary.duration}ms · .getwired/reports/{testReport.id}/{testReport.id}.json
                   </Text>
+                  {(() => {
+                    const htmlPath = join(process.cwd(), ".getwired", "reports", testReport.id, "report.html");
+                    const htmlExists = existsSync(htmlPath);
+                    if (htmlExists) {
+                      const fileUrl = pathToFileURL(htmlPath).href;
+                      return (
+                        <Box flexDirection="column">
+                          <Text color="greenBright" bold>
+                            📄 Report: <Text color="cyan">{fileUrl}</Text>
+                          </Text>
+                          <Text color="green" dimColor>
+                            ↑ Click the link above to open in your browser
+                          </Text>
+                        </Box>
+                      );
+                    }
+                    return null;
+                  })()}
                 </Box>
               )}
               {testError && (
@@ -1430,11 +1467,15 @@ export function App({ mode, initProvider }: AppProps) {
                 <Box marginTop={1} flexDirection="column">
                   <Text color="greenBright" bold>── Findings ──────────────────────────</Text>
                   {activeReport.findings.map((f, i) => (
-                    <Box key={i} paddingLeft={1} flexDirection="column">
+                    <Box key={i} paddingLeft={1} flexDirection="column" marginBottom={1}>
                       <Text color={f.severity === "critical" || f.severity === "high" ? "redBright" : "yellow"}>
                         {f.severity === "critical" || f.severity === "high" ? "✘" : "⚠"} [{f.severity}] {f.title}
                       </Text>
-                      <Text color="green" dimColor>  {f.description.slice(0, 120)}</Text>
+                      <Text color="green" dimColor wrap="wrap">  What: {f.description}</Text>
+                      {f.url && <Text color="cyan" dimColor>  URL: {f.url}</Text>}
+                      {f.steps && f.steps.length > 0 && (
+                        <Text color="green" dimColor>  Steps: {f.steps.slice(0, 3).join(" → ")}{f.steps.length > 3 ? " …" : ""}</Text>
+                      )}
                     </Box>
                   ))}
                 </Box>
