@@ -124,10 +124,10 @@ export async function getElectronUIStructure(session: ElectronSession): Promise<
         const value = element.getAttribute(attr);
         if (!value) continue;
         if (attr === "id") return "#" + CSS.escape(value);
-        return "[" + attr + "=\"" + value.replace(/"/g, '\\"') + "\"]";
+        return "[" + attr + "=\"" + value.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + "\"]";
       }
       if (element.tagName === "A" && element.getAttribute("href")) {
-        return "a[href=\"" + element.getAttribute("href")!.replace(/"/g, '\\"') + "\"]";
+        return "a[href=\"" + element.getAttribute("href")!.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + "\"]";
       }
       return null;
     };
