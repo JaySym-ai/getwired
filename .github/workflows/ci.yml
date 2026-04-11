@@ -21,7 +21,7 @@ jobs:
           node-version: 22
           cache: npm
       - name: Install CLI dependencies
-        run: npm ci --prefix packages/cli
+        run: npm ci
       - name: Run lint
         run: npm run lint --prefix packages/cli
 
@@ -36,6 +36,6 @@ jobs:
           node-version: 22
           cache: npm
       - name: Install CLI dependencies
-        run: npm ci --prefix packages/cli
+        run: npm ci
       - name: Run tests
         run: npm test --prefix packages/cli
